@@ -1,0 +1,41 @@
+<!doctype html>
+<html lang="zh-Hant-TW">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+  <meta name="theme-color" content="#0b1220">
+  <meta name="color-scheme" content="dark">
+  <title>Fantasy 棒球助手</title>
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="icon" href="icons/icon-192.png" type="image/png">
+  <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+  <link rel="stylesheet" href="css/app.css">
+  <script type="module" src="js/app.js"></script>
+</head>
+<body>
+  <header class="topbar">
+    <h1>⚾ Fantasy 棒球助手</h1>
+    <div class="actions">
+      <button id="btn-refresh" class="ghost" type="button" aria-label="重新整理" hidden>↻</button>
+      <button id="btn-logout" class="ghost" type="button" hidden>登出</button>
+    </div>
+  </header>
+
+  <main>
+    <section id="view-login" class="login" hidden>
+      <p>用 Yahoo 帳號登入，查看你的 Fantasy Baseball 對戰戰況。</p>
+      <a id="btn-login" class="primary">用 Yahoo 登入</a>
+      <p id="login-msg" class="login-msg"></p>
+    </section>
+
+    <section id="view-app" hidden>
+      <div class="controls">
+        <label>球季<select id="sel-season"></select></label>
+        <label class="grow">聯盟<select id="sel-league"></select></label>
+        <label>週次<select id="sel-week"></select></label>      </div>
+      <div id="status" class="status" hidden></div>
+      <div id="matchup"></div>
+    </section>
+  </main>
+</body>
+</html>
