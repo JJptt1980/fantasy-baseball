@@ -8,10 +8,10 @@ workers_dev = true
 ALLOWED_ORIGIN = "https://jjptt1980.github.io"
 
 # 存 Yahoo token（以 session id 為 key）與 OAuth state
-# id 由 `npx wrangler kv namespace create SESSIONS` 產生後填入
+# id 由 `npx wrangler kv namespace create fantasy-baseball-sessions` 產生後填入
 [[kv_namespaces]]
 binding = "SESSIONS"
-id = "REPLACE_WITH_KV_ID"
+id = "0166c23e13914c669a0d6aa59ad1d2df"
 
 # 機密不寫在這裡，用 wrangler secret put 設定：
 #   YAHOO_CLIENT_ID

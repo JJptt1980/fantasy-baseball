@@ -62,7 +62,7 @@ cd worker && npm install && npx wrangler login
 ```
 
 ```bash
-npx wrangler kv namespace create SESSIONS
+npx wrangler kv namespace create fantasy-baseball-sessions
 ```
 
 把印出的 `id` 填進 `worker/wrangler.toml` 的 `[[kv_namespaces]]`，然後：
