@@ -5,7 +5,8 @@
 - 單元測試 9 項通過（npm test）；用假資料在手機尺寸確認過對戰畫面
 - Worker 已部署：https://fantasy-baseball-api.weather-one-proxy.workers.dev（KV fantasy-baseball-sessions，id 0166c23e…）
 - GitHub Pages 已開：https://jjptt1980.github.io/fantasy-baseball/
-- 尚未：註冊 Yahoo App、設 YAHOO_CLIENT_ID / YAHOO_CLIENT_SECRET secret、手機實測登入
+- Yahoo App 已建立（Confidential Client、Fantasy Sports Read），兩個 secret 已設定，Yahoo 已接受 Client ID
+- 尚未：手機實測登入（Client Secret 要實際登入才驗證得到）
 
 ## 已定案的決定
 - 前端純 HTML/CSS/JS（ES Modules、無 build），GitHub Pages 從 main 的 /docs 發佈
@@ -17,9 +18,7 @@
 - Service worker 採「先網路、失敗才快取」，避免手機卡舊版
 
 ## 下一步
-1. 註冊 Yahoo App（Web Application、Fantasy Sports Read），Redirect URI：https://fantasy-baseball-api.weather-one-proxy.workers.dev/auth/callback
-2. 在 worker/ 執行 wrangler secret put YAHOO_CLIENT_ID 與 YAHOO_CLIENT_SECRET
-3. 手機開 GitHub Pages 實測登入，用真實資料核對解析
+1. 手機開 GitHub Pages 實測登入，用真實資料核對解析
 
 ## 已知問題 / 待確認
 - Yahoo JSON 解析是依文件結構寫的，尚未用真實資料驗證（首次登入後要核對）
