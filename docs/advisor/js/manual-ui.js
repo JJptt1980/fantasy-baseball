@@ -45,7 +45,7 @@ const boardFor = (sel) => rankBoard(st.prep.base, buildConfig(new Set(sel.select
 
 function save() {
   if (!st.g) return;
-  lsSet(LS_SAVE, { ...st.g.serialize(), sel: st.sel, season: st.prep.season });
+  lsSet(LS_SAVE, { ...st.g.serialize(), sel: st.sel, season: st.prep.season, profiles: st.gProfiles ?? null });
   updateContinue();
 }
 
@@ -65,7 +65,8 @@ async function newGame() {
     st.sel = st.getSelection();
     const slotSel = $('#mn-slot').value;
     const mySlot = slotSel === '' ? Math.floor(Math.random() * TEAMS) : Number(slotSel);
-    st.g = createGame(boardFor(st.sel), { mySlot, profiles: st.getProfiles(), seed: Date.now() & 0x7fffffff, weekly: st.prep.weekly });
+    st.gProfiles = st.getProfiles(); // 開局時的對手資料存進存檔，讀檔才會一模一樣
+    st.g = createGame(boardFor(st.sel), { mySlot, profiles: st.gProfiles, seed: Date.now() & 0x7fffffff, weekly: st.prep.weekly });
     st.lastSeen = 0;
     st.compare = null;
     save();
@@ -83,7 +84,14 @@ async function continueGame() {
     st.sel = s.sel;
     status('讀取存檔…');
     await new Promise((r) => setTimeout(r, 30));
-    st.g = restoreGame(boardFor(s.sel), s, { profiles: st.getProfiles(), weekly: st.prep.weekly });
+    // 用開局時的對手資料重播；舊存檔沒記錄 → 先試現在的、不行再試一般電腦對手
+    const tries = 'profiles' in s ? [s.profiles] : [st.getProfiles(), null];
+    let err = null;
+    for (const pf of tries) {
+      try { st.g = restoreGame(boardFor(s.sel), s, { profiles: pf, weekly: st.prep.weekly }); st.gProfiles = pf; err = null; break; } catch (e) { err = e; }
+    }
+    if (err) throw err;
+    save();
     $('#mn-continue').disabled = false;
     st.lastSeen = st.g.draftLog.length;
     status('');
@@ -110,7 +118,7 @@ function draftWithUndo(fn, name) {
   if (target) target.scrollIntoView({ block: 'start' }); else window.scrollTo(0, 0);
   toast(name ? `選了 ${name}` : '剩下照建議選完', {
     undo: () => {
-      st.g = restoreGame(boardFor(st.sel), before, { profiles: st.getProfiles(), weekly: st.prep.weekly });
+      st.g = restoreGame(boardFor(st.sel), before, { profiles: st.gProfiles, weekly: st.prep.weekly });
       st.lastSeen = seenBefore;
       st.showReport = false;
       save();
@@ -254,7 +262,7 @@ function draftReport(g) {
   // 同一個亂數、同一個順位，全照 App 推薦選一次（只跑選秀，很快）
   let appS = null;
   try {
-    const alt = createGame(boardFor(st.sel), { mySlot: g.mySlot, profiles: st.getProfiles(), seed: g.seed, weekly: null, draftOnly: true });
+    const alt = createGame(boardFor(st.sel), { mySlot: g.mySlot, profiles: st.gProfiles, seed: g.seed, weekly: null, draftOnly: true });
     alt.autoDraftRest();
     appS = teamStrength(alt.teams[g.mySlot]);
   } catch (e) { console.error(e); }

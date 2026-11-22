@@ -437,3 +437,4 @@ details.card, .card, #mn-recs { scroll-margin-top: 64px; }
 .draft-head { padding: 0 2px 8px; }
 .taken-btn { min-height: var(--tap); padding: 4px 12px; white-space: nowrap; font-size: var(--fs-sub); }
 .fc-rec { grid-template-columns: 40px 1fr auto; }
+#tab-demo.playing .opp-card { display: none; }

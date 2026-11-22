@@ -179,18 +179,18 @@
           <button type="button" id="demo-skip" class="btn" hidden>⏭ 跳到結果</button>
         </div>
       </div>
-      <div class="card">
-        <h3 class="first">對手</h3>
-        <p class="muted small" id="demo-opp-desc">現在的對手是一般電腦。按下面的按鈕，可以改成照你們聯盟真人的選人習慣。</p>
-        <button type="button" id="demo-opp-load" class="btn">讀取聯盟對手的真實選秀習慣</button>
-        <div id="demo-opp-list"></div>
-      </div>
       <div id="demo-status" class="status" hidden></div>
       <div id="demo-final" class="card final" hidden></div>
       <div id="demo-now" class="card" hidden></div>
       <div id="demo-standings" class="card" hidden></div>
       <details id="demo-draft" class="card" hidden><summary>選秀結果</summary><div id="demo-draft-body"></div></details>
       <div id="demo-log" class="card" hidden></div>
+      </div>
+      <div class="card opp-card">
+        <h3 class="first">對手</h3>
+        <p class="muted small" id="demo-opp-desc">現在的對手是一般電腦。按下面的按鈕，可以改成照你們聯盟真人的選人習慣。</p>
+        <details><summary class="small">看每個對手的習慣</summary><div id="demo-opp-list"></div></details>
+        <button type="button" id="demo-opp-load" class="btn" style="margin-top:8px">重新從 Yahoo 讀取（約 1 分鐘）</button>
       </div>
     </section>
   </main>
