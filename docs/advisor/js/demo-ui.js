@@ -5,6 +5,7 @@ import * as Y from './yahoo-source.js';
 import { seasonStats, toMaps } from './mlb.js';
 import { initManual } from './manual-ui.js';
 import { buildPlayers, board as rankBoard, blendMaps } from './rank.js';
+import { projections, withProjections, PRESEASON } from './projections.js';
 
 const $ = (s) => document.querySelector(s);
 const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
@@ -163,7 +164,10 @@ async function prepare(getConfig, season) {
   if (st.prepared?.season === season) return st.prepared;
   status(`準備資料：${season - 1} 年成績（選秀用）＋ ${season} 年逐週成績（重播用）…`);
   const [prev, prev2] = await Promise.all([seasonStats(season - 1), seasonStats(season - 2)]);
-  const base = buildPlayers(blendMaps(toMaps(prev), toMaps(prev2)), toMaps(prev2));
+  // 加上「開季前」的官方預測（projected、ZiPS；不用季中會更新的 projectedRos，避免偷看未來）
+  const proj = await projections(season, { systems: PRESEASON, maxAge: null }).catch(() => null);
+  const mixed = withProjections(blendMaps(toMaps(prev), toMaps(prev2)), proj?.sources.length ? proj : null, [toMaps(prev), toMaps(prev2), null]);
+  const base = buildPlayers(mixed, toMaps(prev2));
   let weekly = null;
   try {
     const r = await fetch(`data/weekly-${season}.json`);

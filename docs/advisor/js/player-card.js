@@ -12,8 +12,8 @@ export function reasonOf(p) {
   const top = Object.entries(p.z ?? {}).filter(([, z]) => z > 0.5).sort((a, b) => b[1] - a[1]).slice(0, 2);
   let t = top.length ? top.map(([c, z]) => `${NICE[c]}前 ${topPct(z)}%`).join('、') : '各類別都在平均附近，沒有明顯強項';
   const notes = p.notes ?? [];
-  const plus = notes.find((n) => /上升|進步/.test(n));
-  const risk = notes.find((n) => /不足|避開|偏大|保送/.test(n));
+  const plus = notes.find((n) => /上升|進步|反彈|可能變好/.test(n));
+  const risk = notes.find((n) => /傷兵名單|不足|避開|偏大|保送|退步|可能變差/.test(n));
   if (plus) t += `，${plus}`;
   if (risk) t += `；注意：${risk}`;
   return t;
@@ -65,7 +65,7 @@ export function openPlayerCard(p, { season, lead, extra = '', actions = [] } = {
     <p class="why1 lead">${esc(lead ?? reasonOf(p))}</p>${extra}
     <h3>各類別在聯盟的位置${season ? `（${season} 季）` : ''}</h3>${bars}
     <h3 id="sh-trend-t">${season ?? ''} 逐週走勢</h3><div id="sh-trend" class="muted small">讀取中…</div>
-    <div class="line small muted" style="margin-top:10px">${esc(statLine(p))}</div>
+    <div class="line small muted" style="margin-top:10px">${esc(statLine(p))}${p.projSrc ? `<br>數字來源：${esc(p.projSrc === '預測' ? '明年預測 60%＋去年實際 40%' : p.projSrc === 'Marcel' ? 'Marcel 推估（官方沒有預測）' : '官方預測（去年沒在大聯盟）')}` : ''}</div>
     ${p.notes?.length ? `<div class="note">${esc(p.notes.join('、'))}</div>` : ''}
     ${actions.length ? `<div class="sh-acts">${actions.map((a, i) => `<button type="button" class="btn ${a.primary ? 'primary' : ''}" data-sh="${i}">${esc(a.label)}</button>`).join('')}</div>` : ''}`);
   box.addEventListener('click', (e) => {

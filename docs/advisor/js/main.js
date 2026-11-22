@@ -1,4 +1,5 @@
 import { seasonStats, toMaps, lastFetched } from './mlb.js';
+import { projections, luck, injuries, withProjections, annotate } from './projections.js';
 import { buildPlayers, board } from './rank.js';
 import { BASE, STRATEGIES, PREFS, buildConfig } from './strategies.js';
 import { initPickup } from './pickup-ui.js';
@@ -124,7 +125,7 @@ function renderBoard() {
   const taken = Object.values(state.marks).filter((m) => m === 'taken').length;
   const at = lastFetched(state.season);
   const atTxt = at ? `｜MLB 數據 ${new Date(at).toLocaleDateString('zh-TW', { month: 'numeric', day: 'numeric' })} 抓的（${state.season} 季已結束就不再抓；季中一天最多抓一次）` : '';
-  $('#board-meta').textContent = `依 ${state.season} 季（含 ${state.season - 1} 季判斷傷病）MLB 官方數據｜我選了 ${mine} 人、被選走 ${taken} 人｜「市」＝市場排名｜往右滑＝我選、往左滑＝被選，點一下看詳情${atTxt}`;
+  $('#board-meta').textContent = `依 ${state.dataNote ?? `${state.season} 季`}（含 ${state.season - 1} 季判斷傷病）MLB 官方數據｜我選了 ${mine} 人、被選走 ${taken} 人｜「市」＝市場排名｜往右滑＝我選、往左滑＝被選，點一下看詳情${atTxt}`;
 }
 
 // ── 標記（震動＋可復原） ──
@@ -281,8 +282,18 @@ async function load() {
   setStatus(`讀取 ${state.season} 與 ${state.season - 1} 季 MLB 數據中…（第一次比較久）`);
   if (!state.players) $('#board').innerHTML = skeleton(8);
   try {
-    const [cur, prev] = await Promise.all([seasonStats(state.season), seasonStats(state.season - 1)]);
-    state.players = buildPlayers(toMaps(cur), toMaps(prev));
+    const [cur, prev, prev2] = await Promise.all([seasonStats(state.season), seasonStats(state.season - 1), seasonStats(state.season - 2)]);
+    const years = [toMaps(cur), toMaps(prev), toMaps(prev2)];
+    // 額外資料：抓不到就略過（不影響基本選秀表）
+    setStatus(`讀取 ${state.season + 1} 預測、Statcast、傷兵名單…`);
+    const [proj, lk, inj] = await Promise.all([
+      projections(state.season + 1).catch(() => null),
+      luck(state.season).catch(() => null),
+      injuries().catch(() => null),
+    ]);
+    const mixed = withProjections(years[0], proj?.sources.length ? proj : null, years);
+    state.players = annotate(buildPlayers(mixed, years[1]), { luck: lk, inj, src: mixed.src });
+    state.dataNote = proj?.sources.length ? `${state.season + 1} 預測（MLB ${proj.sources.join('、')}）60%＋${state.season} 實際 40%` : `${state.season} 實際成績（預測讀不到，改用 Marcel 推估）`;
     setStatus('');
     recompute();
   } catch (e) {

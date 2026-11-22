@@ -129,6 +129,8 @@ function adjust(p, cfg) {
     if (cfg.avoidKPenalty) notes.push('三振多＋打擊率低，避開');
   }
   if (p.side === 'P' && p.IP && (p.BB * 9) / p.IP > 3.6) notes.push(`保送偏多 BB/9 ${((p.BB * 9) / p.IP).toFixed(1)}`);
+  // 預測／Statcast／傷兵的備註（projections.js annotate 加的；Python 版沒有這些資料）
+  if (p.extraNotes?.length) notes.push(...p.extraNotes);
   p.value = v;
   p.notes = notes;
 }
