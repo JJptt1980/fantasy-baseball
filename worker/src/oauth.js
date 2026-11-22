@@ -60,6 +60,7 @@ export async function handleLogin(env, url) {
     client_id: env.YAHOO_CLIENT_ID,
     redirect_uri: redirectUri(url),
     response_type: 'code',
+    scope: 'fspt-r', // Fantasy Sports 唯讀；不指定時 Yahoo 可能回 403 not authorized
     state,
   });
   return Response.redirect(`${AUTH_URL}?${q}`, 302);
