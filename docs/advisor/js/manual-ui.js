@@ -171,9 +171,8 @@ const recSentence = (p) => {
   return r.length ? r.join('、') : reasonOf(p);
 };
 // 每個推薦：選／不建議 ＋ 理由
-const nextTag = (p) => (!p.verdict ? '' : p.verdict.pick
-  ? '<span class="tag good">✅ 選</span>'
-  : '<span class="tag">✋ 不建議</span>');
+const LEVEL = ['<span class="tag">✋ 不建議</span>', '<span class="tag lv1">⭐ 可以考慮</span>', '<span class="tag lv2">⭐⭐ 也很好</span>', '<span class="tag lv3">⭐⭐⭐ 最推薦</span>'];
+const nextTag = (p) => (p.verdict ? LEVEL[p.verdict.level] : '');
 
 function renderDraft() {
   const g = st.g;
@@ -188,31 +187,32 @@ function renderDraft() {
   const openCnt = opt.open.reduce((m, x) => ((m[x] = (m[x] ?? 0) + 1), m), {});
   const openTxt = Object.entries(openCnt).map(([k, n]) => (n > 1 ? `${k}×${n}` : k)).join('、');
   // 一列＝一位球員：點整列就是選他；右邊 ⓘ 看詳情
+  // 一列一個人：名字＋星等＋一句很短的理由；點整列＝選他，ⓘ＝詳情
   const row = (p, i) => `<div class="pick-row ${i === 0 ? 'top' : ''}" data-pick="${p.id}" role="button" tabindex="0">
-      <div class="pk-main"><b>${i != null ? `${i + 1}. ` : ''}${esc(p.name)}</b> <span class="pos">${esc(p.pos)}</span> ${i != null ? nextTag(p) : '<span class="tag">✋ 不建議</span>'}
-        <div class="verdict ${i != null && p.verdict?.pick ? 'yes' : ''}">${esc(i != null ? p.verdict?.why ?? '' : '比上面推薦的人弱，除非你特別想要他')}</div>
-        <div class="why1">${esc(i != null ? recSentence(p) : reasonOf(p))}</div></div>
+      <div class="pk-main"><b>${esc(p.name)}</b> <span class="pos">${esc(p.pos)}</span> ${i != null ? nextTag(p) : ''}
+        <div class="verdict lv${i != null ? p.verdict?.level ?? 0 : 0}">${esc(i != null ? p.verdict?.why ?? '' : '比推薦的人弱')}</div></div>
       <button type="button" class="info" data-card="${p.id}" aria-label="看 ${esc(p.name)} 的詳細資料">ⓘ</button></div>`;
+  const starred = opt.recommended.filter((p) => (p.verdict?.level ?? 0) > 0);
+  const others = [...opt.recommended.filter((p) => !(p.verdict?.level > 0)), ...all];
   $('#mn-body').innerHTML = `
-    <div class="card draft-head">
-      <div class="dh-turn">第 ${tu.round} 輪・輪到你選 <button type="button" class="help" data-act="draft-help" aria-label="怎麼選">？怎麼選</button></div>
-      <div class="muted small">${opt.next ? `選完後要再等 ${opt.between} 人才又輪到你` : '這是你最後一次選'}${lostTop ? `｜上次推薦的 ${esc(lostTop.player.name)} 被別人選走了` : ''}</div>
-      <div class="sumline">${opt.open.length ? `還缺：<b>${esc(openTxt)}</b>` : '先發位置都滿了，接下來選替補'}<span class="muted small">｜已選 ${mine.length}/${ROUNDS} 人</span></div>
+    <div class="draft-head">
+      <div class="dh-turn">第 ${tu.round} 輪・輪到你 <button type="button" class="help" data-act="draft-help" aria-label="怎麼選">？</button></div>
+      <div class="sumline small">${opt.open.length ? `還缺 <b>${esc(openTxt)}</b>` : '位置都滿了，選替補'}${opt.forced ? '｜<b class="bad-text">只能選缺的位置</b>' : ''}</div>
     </div>
-    ${opt.forced ? `<div class="ds-banner warn">只剩 ${opt.left} 輪，還有 ${opt.open.length} 個位置沒人（${esc(openTxt)}），所以只能選這些位置的人。</div>` : ''}
     <div class="card" id="mn-recs">
-      ${opt.advice ? `<div class="advice">👉 建議選：<b>${esc(opt.recommended.find((p) => p.id === opt.advice.id)?.name ?? '')}</b><div class="muted small">${esc(opt.advice.why)}</div></div>` : ''}
-      <h3>👆 點一下＝選他（點錯 6 秒內可「復原」）</h3>
-      ${opt.recommended.map((p, i) => row(p, i)).join('')}
-      <div class="mn-actions"><button type="button" class="btn" data-act="draft-rest">剩下的都讓 App 幫我選</button></div>
+      <div class="muted small" style="margin-bottom:4px">👆 點名字＝選他（點錯可「復原」）</div>
+      ${starred.map((p) => row(p, opt.recommended.indexOf(p))).join('')}
+      ${others.length ? `<div class="backup">🔄 上面的被選走了？改選：<b>${others.slice(0, 2).map((p) => esc(p.name)).join('</b>、<b>')}</b></div>` : ''}
     </div>
-    <details class="card" ${st.q || st.pos ? 'open' : ''}><summary>找其他球員</summary>
+    <div class="mn-actions" style="margin:0 0 10px"><button type="button" class="btn" data-act="draft-rest">剩下的讓 App 幫我選</button></div>
+    <details class="card" ${st.q || st.pos ? 'open' : ''}><summary>其他人</summary>
       <div class="toolbar" style="margin-top:8px"><input id="mn-q" type="search" placeholder="打名字找人" value="${esc(st.q)}">
         <select id="mn-pos">${['', 'B', 'P', 'C', '1B', '2B', '3B', 'SS', 'OF', 'DH', 'SP', 'RP'].map((v) => `<option value="${v}" ${st.pos === v ? 'selected' : ''}>${v === '' ? '全部' : v === 'B' ? '打者' : v === 'P' ? '投手' : v}</option>`).join('')}</select></div>
-      ${all.map((p) => row(p, null)).join('') || '<p class="muted">找不到</p>'}
+      ${others.slice(0, 40).map((p) => row(p, opt.recommended.includes(p) ? opt.recommended.indexOf(p) : null)).join('') || '<p class="muted">找不到</p>'}
       ${since.length ? `<div class="muted small" style="margin-top:8px">別隊剛剛選了：${since.map((x) => esc(x.player.name)).join('、')}</div>` : ''}
-    </details>
-    ${mine.length ? `<details class="card"><summary>我已經選的 ${mine.length} 人</summary><div class="sub muted small">${mine.map((p) => esc(p.name)).join('、')}</div></details>` : ''}`;
+      ${lostTop ? `<div class="muted small">上次推薦的 ${esc(lostTop.player.name)} 被選走了</div>` : ''}
+      ${mine.length ? `<div class="muted small" style="margin-top:6px">我已經選了 ${mine.length} 人：${mine.map((p) => esc(p.name)).join('、')}</div>` : ''}
+    </details>`;
   if (!st.tipShown && !lsGet(LS_TIP, false)) { st.tipShown = true; setTimeout(draftHelp, 50); }
 }
 
@@ -223,12 +223,11 @@ function draftHelp() {
   const box = sheet(`
     <div class="sh-head"><div class="sh-name">模擬選秀怎麼玩</div><button type="button" class="sh-x" data-close aria-label="關閉">✕</button></div>
     <ol class="steps">
-      <li>12 隊輪流選球員，一共 25 輪。輪到你時，上面會寫「輪到你選」。</li>
-      <li><b>點一下球員＝選他。</b>點錯了，上面會跳出「復原」，6 秒內按就能反悔。</li>
-      <li>想先看清楚再選，點球員右邊的 <b>ⓘ</b>。</li>
-      <li>最上面的「👉 建議選」就是 App 覺得你現在該選的人，<b>不知道選誰就選他</b>。</li><li>每個人旁邊都寫了 <span class="tag good">✅ 選</span> 或 <span class="tag">✋ 不建議</span>，下面一行是理由。</li>
-      <li>上面的「還缺」告訴你哪些位置還沒有人，記得補齊。</li>
-      <li>不想一個一個選？按最下面「剩下的都讓 App 幫我選」。</li>
+      <li>輪到你時，上面寫「輪到你」。</li>
+      <li><b>點名字＝選他。</b>點錯了，按上面的「復原」。</li>
+      <li>⭐⭐⭐ 最推薦，<b>不知道選誰就選它</b>。⭐⭐、⭐ 也可以。</li>
+      <li>「還缺」是還沒人的位置，記得補。</li>
+      <li>想看資料點 ⓘ；懶得選按「剩下的讓 App 幫我選」。</li>
     </ol>
     <label class="check"><input type="checkbox" id="tip-skip"> 下次不要再顯示</label>
     <div class="sh-acts"><button type="button" class="btn primary" data-close>知道了，開始選</button></div>`, {
@@ -376,6 +375,8 @@ function recapHtml(g) {
 }
 
 function render() {
+  // 玩的時候藏起 Demo 大標題和模式切換，留空間給選秀
+  document.getElementById('tab-demo').classList.toggle('playing', !!st.g && st.g.phase !== 'done');
   status('');
   $('#mn-start').hidden = !!st.g;
   if (!st.g) { $('#mn-body').innerHTML = ''; updateContinue(); return; }

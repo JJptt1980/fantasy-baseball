@@ -140,8 +140,8 @@ function update(picks) {
     st.practiceLog.push({ overall: lastMine.overall, round: lastMine.round, picked: lastMine.player?.name ?? lastMine.name, recs: st.recBefore.recs });
   }
 
-  const recs = s.done || !s.slot ? [] : recommend({ board, takenIds: s.takenIds, myPlayers: s.mine, picksUntil: s.picksUntil, myPicksLeft: s.myPicksLeft });
-  if (s.myNext && s.picksUntil <= 1) st.recBefore = { overall: s.myNext, recs: recs.map((r) => r.p.name) };
+  const recs = s.done || !s.slot ? [] : recommend({ board, takenIds: s.takenIds, myPlayers: s.mine, picksUntil: s.picksUntil, myPicksLeft: s.myPicksLeft, n: 5 });
+  if (s.myNext && s.picksUntil <= 1) st.recBefore = { overall: s.myNext, recs: recs.slice(0, 3).map((r) => r.p.name) };
   const atMine = s.picksUntil != null ? predictAvailable({ board, takenIds: s.takenIds, k: s.picksUntil }) : null;
 
   // 震動：剩 2 順位提醒一次、輪到你再提醒一次
@@ -159,6 +159,19 @@ function update(picks) {
   return s.picksUntil;
 }
 
+// 前 3 名＋建議程度（⭐⭐⭐／⭐⭐／⭐），下面一行備案：上面的被選走了改選誰
+function starRows(recs) {
+  const top = recs[0];
+  const lv = (r, i) => (i === 0 ? 3 : r.score >= top.score - Math.abs(top.score) * 0.05 ? 2 : r.score >= top.score - Math.abs(top.score) * 0.15 ? 1 : 0);
+  const TAG = ['<span class="tag">備案</span>', '<span class="tag lv1">⭐ 可以考慮</span>', '<span class="tag lv2">⭐⭐ 也很好</span>', '<span class="tag lv3">⭐⭐⭐ 最推薦</span>'];
+  return recs.slice(0, 3).map((r, i) => `<div class="mn-row"><div><b>${esc(r.p.name)}</b> <span class="pos">${esc(r.p.pos)}</span> ${TAG[lv(r, i)]}
+      <div class="muted small">${esc(r.reasons[0] ?? '')}</div></div></div>`).join('') + backupLine(recs);
+}
+function backupLine(recs) {
+  const b = recs.slice(3, 5);
+  return b.length ? `<div class="backup">🔄 上面的被選走了？改選：<b>${b.map((r) => esc(r.p.name)).join('</b>、<b>')}</b></div>` : '';
+}
+
 // ── 選秀專注模式：全螢幕只顯示「還差幾順位＋前 3 推薦＋剛剛誰被選」 ──
 function renderFocus() {
   const box = $('#ds-focus');
@@ -172,7 +185,7 @@ function renderFocus() {
     <div class="fc-top"><span class="muted small">第 ${s.done ? ROUNDS : Math.ceil(s.nextOverall / TEAMS)} 輪｜已選 ${s.made.length}/${TEAMS * ROUNDS}</span><button type="button" class="btn" id="ds-focus-close">離開</button></div>
     <div class="fc-hero ${now ? 'now' : ''}"><div class="fc-n">${big}</div><div class="fc-s">${esc(sub)}</div></div>
     ${now ? '<button type="button" class="btn primary fc-room" id="ds-room">打開 Yahoo 選秀室</button>' : ''}
-    ${recs.length ? `<h3>App 建議選</h3>${recs.map((r, i) => `<div class="fc-rec"><div class="fc-i">${i + 1}</div><div><div class="fc-name">${esc(r.p.name)} <span class="pos">${esc(r.p.pos)}</span></div><div class="muted small">${r.reasons.map(esc).join('、')}</div></div></div>`).join('')}` : ''}
+    ${recs.length ? `<h3>App 建議選</h3>${recs.slice(0, 3).map((r, i) => `<div class="fc-rec"><div class="fc-i">${i + 1}</div><div><div class="fc-name">${esc(r.p.name)} <span class="pos">${esc(r.p.pos)}</span></div><div class="muted small">${esc(r.reasons[0] ?? '')}</div></div></div>`).join('')}${backupLine(recs)}` : ''}
     ${last.length ? `<h3>剛剛被選</h3>${last.map((m) => `<div class="sumline small">${m.overall}. ${esc(m.player?.name ?? m.name)}<span class="muted">｜${esc(m.team ?? '')}</span></div>`).join('')}` : ''}`;
 }
 function openFocus(on) {
@@ -238,8 +251,7 @@ function render() {
   const cnt = open.reduce((m, x) => ((m[x] = (m[x] ?? 0) + 1), m), {});
   const missing = Object.entries(cnt).map(([k, n]) => (n > 1 ? `${k}×${n}` : k)).join('、');
 
-  const recHtml = recs.length ? `<h3>App 建議選</h3>${recs.map((r, i) => `<div class="mn-row"><div><b>${i + 1}. ${esc(r.p.name)}</b> <span class="pos">${esc(r.p.pos)}</span>
-      <div class="mn-cats">${r.reasons.map((x) => `<span class="tag">${esc(x)}</span>`).join('')}</div></div></div>`).join('')}` : '';
+  const recHtml = recs.length ? `<h3>App 建議選 <span class="muted small">（每次更新會自動換掉被選走的人）</span></h3>${starRows(recs)}` : '';
   const predHtml = atMine && s.picksUntil > 0 ? `<details class="sub"><summary>輪到你時，大概還剩誰？</summary>
       <div class="sumline">應該還在：${atMine.stay.slice(0, 6).map((p) => esc(p.name)).join('、')}</div>
       <div class="sumline muted">可能被搶走：${atMine.gone.sort((a, b) => a.rank - b.rank).slice(0, 6).map((p) => esc(p.name)).join('、') || '—'}</div></details>` : '';

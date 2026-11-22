@@ -92,15 +92,18 @@ export function createGame(players, { mySlot, profiles, seed, weekly, draftOnly 
       recs = recs.concat(sorted.filter((p) => !have.has(p.id)).slice(0, 5 - recs.length).map((p) => ({ p, reasons: [] })));
     }
     const recommended = recs.map((x) => ({ ...x.p, recReasons: x.reasons, fillSlot: x.fillSlot ?? null, staysNext: stayIds ? stayIds.has(x.p.id) : null, recScore: x.score ?? null }));
-    // 每個推薦都給「選／不建議」＋一句理由；每輪只有第 1 名是「選」（順序照分數排，模擬起來最強）
+    // 建議程度：最多 3 人（⭐⭐⭐ 最推薦／⭐⭐ 也很好／⭐ 可以考慮），其他 ✋ 不建議；順序照分數排（模擬起來最強）
     const top = recommended[0];
+    const ratio = (p) => (top?.recScore && p.recScore != null ? 1 - (top.recScore - p.recScore) / Math.abs(top.recScore) : 0);
+    let starred = 0;
+    // 理由要短：真正選秀一輪只有 1 分鐘
     for (const [i, p] of recommended.entries()) {
-      const close = top && p.recScore != null && top.recScore != null && p.recScore >= top.recScore - Math.abs(top.recScore) * 0.1;
-      if (i === 0) p.verdict = { pick: true, why: p.staysNext === false ? '現在最好的選擇，而且下次輪到你時他多半已經被選走' : '現在最好的選擇' };
-      else if (!p.fillSlot && open.length) p.verdict = { pick: false, why: '他的位置你已經有人了，選了只能當替補' };
-      else if (close) p.verdict = { pick: false, why: `跟 ${top.name} 差不多強，但 ${top.name} 好一點點；真的比較喜歡他也可以選` };
-      else if (p.staysNext) p.verdict = { pick: false, why: `比 ${top.name} 弱一點，而且下次輪到你時他多半還在，到時再選` };
-      else p.verdict = { pick: false, why: `比 ${top.name} 弱，這輪先選 ${top.name}` };
+      if (i === 0) { p.verdict = { level: 3, why: p.staysNext === false ? '最強，下輪就沒了' : '現在最強' }; starred++; continue; }
+      if (!p.fillSlot && open.length) { p.verdict = { level: 0, why: '位置已滿' }; continue; }
+      const r = ratio(p);
+      if (starred < 3 && r >= 0.95) { p.verdict = { level: 2, why: p.staysNext === false ? '跟第 1 名差不多，下輪就沒了' : '跟第 1 名差不多' }; starred++; }
+      else if (starred < 3 && r >= 0.85) { p.verdict = { level: 1, why: '弱一點，缺這個位置再選' }; starred++; }
+      else p.verdict = { level: 0, why: p.staysNext ? '下輪還在，之後再選' : '比較弱' };
     }
     const advice = top ? { id: top.id, why: top.verdict.why } : null;
     return { recommended, advice, all: sorted, open, forced, left, next, between, needs: categoryNeeds(mine, players) };
