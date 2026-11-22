@@ -5,3 +5,5 @@ node_modules/
 .DS_Store
 *.apk
 *.keystore
+sim/data/
+__pycache__/

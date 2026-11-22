@@ -1,31 +1,29 @@
 # 專案狀態
 
 ## 目前進度（2026-11-22）
-- 第一階段自用版骨架完成：前端 PWA（docs/）+ Cloudflare Worker（worker/）
-- 單元測試 9 項通過（npm test）；用假資料在手機尺寸確認過對戰畫面
-- Worker 已部署：https://fantasy-baseball-api.weather-one-proxy.workers.dev（KV fantasy-baseball-sessions，id 0166c23e…）
-- GitHub Pages 已開：https://jjptt1980.github.io/fantasy-baseball/
-- Yahoo App 已建立（Confidential Client、Fantasy Sports Read），兩個 secret 已設定，Yahoo 已接受 Client ID
-- 手機實測：Yahoo 登入成功（Client Secret 正確）
-- 修正：Yahoo API 主機應為 fantasysports.yahooapis.com（原本寫錯造成 Cloudflare 530 / 1016），已重新部署
-- 登入時明確要求 scope=fspt-r（Fantasy 唯讀）
-- **卡關（2026-11-22）**：Yahoo 對所有 Fantasy API 回 403「This application is not authorized to perform this action」。已從 Mac 直接用同一把 token 測過，連 game/mlb 都 403，確定不是 Worker 的問題。據其他開發者回報，Yahoo 從 2026 年 7 月起，Fantasy API 要個別申請核准（勾選 Fantasy Sports - Read 不算核准），需到 sports.yahoo.com/developer/access/ 申請、在 sports.yahoo.com/developer/application-confirmation/ 確認 Client ID，可能還有 DocuSign 合約，聽說約 1–2 週
-- 尚未：用真實資料確認聯盟清單與對戰畫面（等 Yahoo 核准）
+- 方向調整：重點從「看對戰的 App」改成**選秀建議＋季中撿人建議**
+  - 季前：使用者勾選選秀方向 → 產生選秀順序表
+  - 季中：依「自由球員近況 × 我方隊形缺口 × 當週對手近況」排撿人推薦
+- 已完成 2027 選秀順序表 v1：`draft/2027-draft-board.csv`（前 300 名，含建議輪次、市場排名、備註）
+- 模擬器 `sim/`：12 隊蛇形選秀＋23 週 H2H 18 類別＋6 隊季後賽，用來驗證選秀策略
+- 資料來源：MLB 官方公開 API（statsapi.mlb.com，免登入），`sim/fetch.sh` 下載到 `sim/data/`（不進 git）
+- 舊的 PWA＋Worker（Yahoo API 版）保留：Yahoo Fantasy API 需另外申請核准（403），使用者決定不申請
+- Android 網頁解析版已暫停，程式收在 `git stash`（「Android 網頁解析（暫停）」）
 
 ## 已定案的決定
-- 前端純 HTML/CSS/JS（ES Modules、無 build），GitHub Pages 從 main 的 /docs 發佈
-- 後端 Cloudflare Worker `fantasy-baseball-api` + KV `SESSIONS`；Yahoo token 只存 KV，瀏覽器只持有隨機 session id（Bearer）
-- 登入完成後 Worker 以網址 `#sid=` 把 session id 交給前端，前端收下後立刻從網址列移除
-- CORS 與登入導回網址只允許 `https://jjptt1980.github.io`
-- Worker 只代理白名單 Yahoo 路徑
-- 賽制依 Yahoo `scoring_type`：head（已做）、headpoint / roto（預留）
-- Service worker 採「先網路、失敗才快取」，避免手機卡舊版
+- 聯盟：West Bay Star（ID 105537），12 隊、H2H 18 類別、6 隊季後賽（第 24–26 週）、每年重選
+- 使用者勾選：火力路線、王牌＋控球、SV 優先、年輕上升股、避開傷病、捕手晚選、季中積極串流
+- 模擬奪冠率（每組 360 季）：火力＋放棄打者 K 23.1%｜均衡＋SV 加重 25.0%｜照市場排名 29.7%｜**均衡＋輕度偏好 30.8%（採用）**
+- 採用設定：18 類別等權、年輕 +8%、近兩季出賽不足 -12%、捕手 -50%、不扣守位替補、不壓先發、最多比市場提早 15 順位
+- 選秀表只用 2026／2025 實際數據；2027 預測要到春訓才有
 
 ## 下一步
-1. 使用者向 Yahoo 申請 Fantasy API 存取並確認 Client ID
-2. 核准後：手機 App 登出再登入，用真實資料核對解析
-3. 若核准後仍 403：重建 Yahoo App、重設 secret 再登入
+1. 季中撿人流程：使用者問 → 用已登入的內建瀏覽器看自己陣容、自由球員、當週對手，交叉排名
+2. 2027 春訓（約 2027 年 3 月）：加入預測數據重排選秀表；聯盟續約後幫使用者在 Yahoo「Edit Pre-Draft Rankings」照表排好（Yahoo 不能直接貼上）
+3. 是否要把「勾方向 → 出選秀表 → 撿人建議」做成 App（待使用者確認做法）
 
 ## 已知問題 / 待確認
-- Yahoo JSON 解析是依文件結構寫的，尚未用真實資料驗證（首次登入後要核對）
-- 季後賽週數若跨多週（Yahoo 有時一個 matchup 涵蓋兩週）尚未特別處理
+- 模擬器的計分模型和排序用的是同一套 z 分數，結果會偏向均衡排序；是相對比較，不是絕對預測
+- QS 是估算值（MLB API 沒有 QS）
+- 守位只用 MLB 主守位，和 Yahoo 的守位資格不完全相同
+- 選秀表沒有真實 ADP，「市場排名」是均衡價值的近似
