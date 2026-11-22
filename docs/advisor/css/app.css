@@ -256,6 +256,7 @@ a { color: var(--accent-text); }
 .topbar { min-height: 44px; justify-content: center; position: sticky; }
 .topbar .mini-title { font-weight: 600; font-size: var(--fs-body); opacity: 0; transition: opacity .2s; }
 .topbar.scrolled .mini-title { opacity: 1; }
+.topbar:not(.scrolled) { border-bottom-color: transparent; background: var(--bg); -webkit-backdrop-filter: none; backdrop-filter: none; padding-top: calc(env(safe-area-inset-top) + 4px); padding-bottom: 4px; }
 .topbar .back { position: absolute; left: 8px; border: 0; background: transparent; color: var(--accent-text); font-size: var(--fs-body); min-height: 44px; padding: 0 8px; }
 .large-title { font-size: var(--fs-display); font-weight: 800; margin: 6px 0 14px; letter-spacing: -.01em; }
 .lt-row { display: flex; align-items: center; gap: 10px; }
