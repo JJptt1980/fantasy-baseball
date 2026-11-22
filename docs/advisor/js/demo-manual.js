@@ -3,12 +3,15 @@
 import { CATS, CAT_LABEL, teamLine, margin, scale } from './pickup.js';
 import {
   rng, TEAMS, ROUNDS, REG_WEEKS, assign, fits, posGroup, bucketOf, makeWorld, lineupSlots, lineupW,
-  weekStats, weekStatsReal, match, schedule, swap, aiMoves, newcomers, standings, pickupOptions, runSeason,
+  weekStats, weekStatsReal, match, schedule, swap, aiMoves, newcomers, standings, pickupOptions, runSeason, holes, uniqueById,
 } from './demo-sim.js';
 
 const BUDGET = 150;
+const IL_SLOTS = 2;
+const ROSTER = 25;
 
 export function createGame(players, { mySlot, profiles, seed, weekly }) {
+  players = uniqueById(players);
   const r = rng(seed);
   const g = {
     seed, mySlot, phase: 'draft', actions: [],
@@ -17,6 +20,7 @@ export function createGame(players, { mySlot, profiles, seed, weekly }) {
     ai: [], pickIndex: 0, draftLog: [],
     world: null, freeAgents: null, sched: null, rec: null, week: 0, budget: BUDGET,
     overrides: new Map(), events: [], seeds: null, bracket: [], champ: null, aiTotal: 0,
+    il: [], moveLog: [], preds: [],
   };
   const pool = r.shuffle([...(profiles ?? [])]);
   for (let t = 0; t < TEAMS; t++) if (t !== mySlot) g.ai[t] = pool.pop() ?? null;
@@ -115,9 +119,19 @@ export function createGame(players, { mySlot, profiles, seed, weekly }) {
         return { cat: c, label: CAT_LABEL[c], me: me[c], opp: op[c], prob: 1 / (1 + Math.exp(-1.7 * m)) };
       });
     }
+    const team = g.teams[mySlot];
     return {
       week: w + 1, dates: weekly?.weeks?.[w] ?? null, opp, cats, weak: pk.weak,
       options: pk.options.filter((o) => o.gain > 0.005).slice(0, 8),
+      room: ROSTER - team.length,
+      injured: team.filter((p) => g.world.injured(p, w)),
+      il: g.il.map((p) => ({ p, healthy: !g.world.injured(p, w) && g.world.played(p, Math.max(0, w - 1)) })),
+      ilFree: IL_SLOTS - g.il.length,
+      holesIf: (addId, dropId) => {
+        const add = g.freeAgents.get(addId);
+        const trial = team.map((p) => (p.id === dropId ? add : p));
+        return holes(trial, g.world, w) - holes(team, g.world, w);
+      },
       lineup: lineupSlots(g.teams[mySlot], g.world, w, g.overrides),
       bench: g.teams[mySlot].filter((p) => !lineupW(g.teams[mySlot], g.world, w, g.overrides).includes(p)),
       form: (p) => g.world.score(p, w),
@@ -132,21 +146,74 @@ export function createGame(players, { mySlot, profiles, seed, weekly }) {
   };
   g.move = (addId, dropId) => {
     if (g.budget <= 0) throw new Error('整季 150 次換人已用完');
+    const team = g.teams[mySlot];
     const add = g.freeAgents.get(addId);
-    const drop = g.teams[mySlot].find((p) => p.id === dropId);
-    if (!add || !drop) throw new Error('找不到這兩位球員');
-    if (add.side !== drop.side) throw new Error('打者換打者、投手換投手');
-    g.actions.push(['move', addId, dropId]);
-    swap(g.teams[mySlot], g.freeAgents, drop, add);
-    g.overrides.delete(dropId);
+    if (!add) throw new Error('找不到這位自由球員');
+    if (dropId == null) {
+      if (team.length >= ROSTER) throw new Error('陣容已滿 25 人，要選一個人丟掉');
+      g.actions.push(['move', addId, null]);
+      team.push(add);
+      g.freeAgents.delete(addId);
+    } else {
+      const drop = team.find((p) => p.id === dropId);
+      if (!drop) throw new Error('找不到要丟的球員');
+      if (add.side !== drop.side) throw new Error('打者換打者、投手換投手');
+      g.actions.push(['move', addId, dropId]);
+      swap(team, g.freeAgents, drop, add);
+      g.overrides.delete(dropId);
+    }
+    g.moveLog.push({ add, dropId, week: g.week });
     g.budget--;
+  };
+  // 傷兵格：連兩週沒上場的人才能放進 IL；放進去後陣容空出一格可以只撿不丟
+  g.toIL = (id) => {
+    const team = g.teams[mySlot];
+    const p = team.find((x) => x.id === id);
+    if (!p) throw new Error('找不到這位球員');
+    if (g.il.length >= IL_SLOTS) throw new Error('2 個 IL 格都滿了');
+    if (!g.world.injured(p, g.week)) throw new Error('他最近有上場，不能放 IL');
+    g.actions.push(['il', id]);
+    team.splice(team.indexOf(p), 1);
+    g.il.push(p);
+    g.overrides.delete(id);
+  };
+  // 傷癒歸隊：陣容滿了就要丟一個人
+  g.fromIL = (id, dropId) => {
+    const team = g.teams[mySlot];
+    const p = g.il.find((x) => x.id === id);
+    if (!p) throw new Error('IL 裡沒有這位球員');
+    if (team.length >= ROSTER) {
+      const drop = team.find((x) => x.id === dropId);
+      if (!drop) throw new Error('陣容已滿，要選一個人丟掉');
+      team.splice(team.indexOf(drop), 1);
+      g.freeAgents.set(drop.id, drop);
+    }
+    g.actions.push(['unil', id, dropId ?? null]);
+    g.il.splice(g.il.indexOf(p), 1);
+    team.push(p);
   };
   g.autoMoves = () => {
     let n = 0;
-    for (let k = 0; k < 2; k++) {
-      const best = pickupOptions(g.teams, g.freeAgents, mySlot, g.world, g.week).options[0];
-      if (!best || best.gain <= 0.05 || g.budget <= 0) break;
-      g.move(best.add.id, best.drop.id);
+    const w = g.week;
+    const team = g.teams[mySlot];
+    // ① 傷癒的人從 IL 回來（丟近況最差的同類球員）
+    for (const p of [...g.il]) {
+      if (g.world.injured(p, w) || !g.world.played(p, Math.max(0, w - 1))) continue;
+      const worst = team.filter((x) => x.side === p.side).sort((a, b) => g.world.score(a, w) - g.world.score(b, w))[0];
+      if (team.length < ROSTER) g.fromIL(p.id, null);
+      else if (worst && g.world.score(p, w) > g.world.score(worst, w)) g.fromIL(p.id, worst.id);
+    }
+    // ② 傷兵放進 IL
+    for (const p of [...team].sort((a, b) => (b.value ?? 0) - (a.value ?? 0))) {
+      if (g.il.length < IL_SLOTS && g.world.injured(p, w)) g.toIL(p.id);
+    }
+    // ③ 空位補人、再換最多 2 次
+    for (let k = 0; k < 4 && g.budget > 0; k++) {
+      const best = pickupOptions(g.teams, g.freeAgents, mySlot, g.world, w).options[0];
+      const roomLeft = ROSTER - team.length;
+      if (!best || (best.drop && (best.score <= 0.05 || k - roomLeft >= 2))) break;
+      if (!best.drop && best.gain <= 0) break;
+      g.move(best.add.id, best.drop?.id ?? null);
       n++;
     }
     return n;
@@ -160,6 +227,7 @@ export function createGame(players, { mySlot, profiles, seed, weekly }) {
   g.playWeek = () => {
     g.actions.push(['play']);
     const w = g.week;
+    const predCats = g.opponent() != null ? g.preview().cats : null;
     g.aiTotal += aiMoves(g.teams, g.freeAgents, g.ai, mySlot, g.world, w, r);
     if (g.phase === 'season') {
       const games = [];
@@ -170,7 +238,8 @@ export function createGame(players, { mySlot, profiles, seed, weekly }) {
         if (m.w > m.l) { g.rec[a].mw++; g.rec[b].ml++; } else if (m.l > m.w) { g.rec[b].mw++; g.rec[a].ml++; }
         games.push({ a, b, ...m });
       }
-      const ev = { type: 'week', week: w + 1, games, myGame: games.find((x) => x.a === mySlot || x.b === mySlot), standings: standings(g.rec) };
+      const myGame = games.find((x) => x.a === mySlot || x.b === mySlot);
+      const ev = { type: 'week', week: w + 1, games, myGame, standings: standings(g.rec), pred: track(predCats, myGame) };
       g.events.push(ev);
       g.week++;
       if (g.week >= REG_WEEKS) startPlayoffs();
@@ -193,11 +262,32 @@ export function createGame(players, { mySlot, profiles, seed, weekly }) {
       g.champ = res[0].winner;
       g.phase = 'done';
     }
-    const ev = { type: 'playoff', week: w + 1, games: res };
+    const mine = res.find((m) => m.a === mySlot || m.b === mySlot);
+    const ev = { type: 'playoff', week: w + 1, games: res, pred: mine ? track(predCats, { ...mine.res, a: mine.a, b: mine.b }) : null };
     g.events.push(ev);
     g.week++;
     return ev;
   };
+  // 預估命中：每類「預估勝率 > 50%」跟實際勝負對得上嗎（平手不算）
+  function track(cats, game) {
+    if (!cats || !game) return null;
+    const meA = game.a === mySlot;
+    let hit = 0;
+    let n = 0;
+    let pw = 0;
+    for (const c of cats) {
+      const r0 = game.cats[c.cat];
+      const r = meA ? r0 : r0 === 'win' ? 'loss' : r0 === 'loss' ? 'win' : 'tie';
+      if (c.prob > 0.5) pw++;
+      if (r === 'tie') continue;
+      n++;
+      if ((c.prob > 0.5) === (r === 'win')) hit++;
+    }
+    const p = { hit, n, predWin: pw, predLoss: cats.length - pw };
+    g.preds.push(p);
+    return p;
+  }
+
   function startPlayoffs() {
     g.phase = 'playoffs';
     g.seeds = standings(g.rec).map((x) => x.team);
@@ -219,6 +309,26 @@ export function createGame(players, { mySlot, profiles, seed, weekly }) {
     const end = events.at(-1);
     return { myRank: end.myRank, champ: end.champ === mySlot, champName: end.names[end.champ] };
   };
+  // 季末回顧：在哪一輪被誰淘汰、選秀最賺／最虧、最佳撿人、預估命中率
+  g.recap = () => {
+    const total = (p, from = 0, to = 26) => { let s = 0; for (let w = from; w < to; w++) s += g.world.actScore(p, w); return s; };
+    const lost = g.bracket.find((m) => m.winner != null && (m.a === mySlot || m.b === mySlot) && m.winner !== mySlot);
+    const picks = g.draftLog.filter((x) => x.team === mySlot).map((x) => ({ ...x, total: total(x.player) }));
+    const late = picks.filter((x) => x.round >= 6).sort((a, b) => b.total - a.total)[0];
+    const early = picks.filter((x) => x.round <= 5).sort((a, b) => a.total - b.total)[0];
+    const adds = g.moveLog.map((m) => {
+      const dropped = g.moveLog.find((x) => x.dropId === m.add.id && x.week > m.week);
+      return { ...m, total: total(m.add, m.week, dropped ? dropped.week : 26) };
+    }).sort((a, b) => b.total - a.total);
+    const hit = g.preds.reduce((a, p) => a + p.hit, 0);
+    const n = g.preds.reduce((a, p) => a + p.n, 0);
+    return {
+      seed: g.seeds?.indexOf(mySlot) + 1,
+      out: lost ? { label: lost.label, by: lost.a === mySlot ? lost.b : lost.a, res: lost.res, a: lost.a } : null,
+      missed: g.seeds && g.seeds.indexOf(mySlot) >= 6,
+      steal: late, bust: early, bestAdd: adds[0] ?? null, accuracy: n ? hit / n : null,
+    };
+  };
   g.serialize = () => ({ v: 1, seed, mySlot, actions: g.actions });
 
   runAI();
@@ -231,6 +341,8 @@ export function restoreGame(players, save, { profiles, weekly }) {
   for (const a of save.actions) {
     if (a[0] === 'pick') g.draftPick(a[1]);
     else if (a[0] === 'move') g.move(a[1], a[2]);
+    else if (a[0] === 'il') g.toIL(a[1]);
+    else if (a[0] === 'unil') g.fromIL(a[1], a[2]);
     else if (a[0] === 'lineup') g.setLineup(a[1], a[2]);
     else if (a[0] === 'resetLineup') g.resetLineup();
     else if (a[0] === 'play') g.playWeek();

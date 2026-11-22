@@ -4,7 +4,7 @@ import { CAT_LABEL } from './pickup.js';
 import * as Y from './yahoo-source.js';
 import { seasonStats, toMaps } from './mlb.js';
 import { initManual } from './manual-ui.js';
-import { buildPlayers, board as rankBoard } from './rank.js';
+import { buildPlayers, board as rankBoard, blendMaps } from './rank.js';
 
 const $ = (s) => document.querySelector(s);
 const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
@@ -161,7 +161,7 @@ async function prepare(getConfig, season) {
   if (st.prepared?.season === season) return st.prepared;
   status(`準備資料：${season - 1} 年成績（選秀用）＋ ${season} 年逐週成績（重播用）…`);
   const [prev, prev2] = await Promise.all([seasonStats(season - 1), seasonStats(season - 2)]);
-  const base = buildPlayers(toMaps(prev), toMaps(prev2));
+  const base = buildPlayers(blendMaps(toMaps(prev), toMaps(prev2)), toMaps(prev2));
   let weekly = null;
   try {
     const r = await fetch(`data/weekly-${season}.json`);

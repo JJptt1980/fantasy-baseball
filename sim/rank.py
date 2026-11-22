@@ -200,12 +200,12 @@ def board(players):
     market = score(copy.deepcopy(players), {})
     for p in market:
         p['value'] = p['raw'] - 0  # 不加偏好修正
-    mrank = {p['id']: i + 1 for i, p in enumerate(sorted(market, key=lambda p: -(p['value'])))}
+    mrank = {(p['side'], p['id']): i + 1 for i, p in enumerate(sorted(market, key=lambda p: -(p['value'])))}  # 二刀流同編號，加上打/投
     mine = score(players, WEIGHTS)
     for i, p in enumerate(mine, 1):
         p['my_rank'] = i
-        p['market_rank'] = mrank[p['id']]
-        p['key'] = max(i, mrank[p['id']] - MAX_REACH)
+        p['market_rank'] = mrank[(p['side'], p['id'])]
+        p['key'] = max(i, mrank[(p['side'], p['id'])] - MAX_REACH)
     if KEY_TRANSFORM:
         sps = sorted((p for p in mine if p['pos'] == 'SP'), key=lambda p: -p['value'])
         sp_rank = {p['id']: i + 1 for i, p in enumerate(sps)}

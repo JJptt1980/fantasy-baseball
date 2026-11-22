@@ -28,32 +28,32 @@
 27,3,30,Jordan Walker,OF,St. Louis Cardinals,24,7.83,97,29,102,22,0.269,0.793,,,,,,,,,上升股、OPS 比 2025 進步 +0.209
 28,3,28,Yandy Díaz,DH,Tampa Bay Rays,34,7.70,93,22,85,3,0.293,0.805,,,,,,,,,
 29,3,32,Jackson Chourio,OF,Milwaukee Brewers,22,7.69,96,25,75,23,0.291,0.838,,,,,,,,,上升股、OPS 比 2025 進步 +0.067
-30,3,27,Sal Stewart,1B,Cincinnati Reds,22,7.32,87,32,112,15,0.263,0.787,,,,,,,,,上升股、近兩季出賽不足
-31,3,31,Sonny Gray,SP,Boston Red Sox,36,7.19,,,,,,,18,0,0,149,2.72,1.15,2.4,169,
-32,3,33,Zack Wheeler,SP,Philadelphia Phillies,36,6.85,,,,,,,14,0,0,193,3.00,1.05,2.6,162,
-33,3,34,Cade Smith,RP,Cleveland Guardians,27,6.73,,,,,,,6,41,1,107,1.95,0.96,2.8,74,
-34,3,36,Matt Olson,1B,Atlanta Braves,32,6.65,99,41,93,4,0.251,0.823,,,,,,,,,
-35,3,45,Michael Harris II,OF,Atlanta Braves,25,6.44,79,26,87,12,0.294,0.812,,,,,,,,,上升股、OPS 比 2025 進步 +0.135
-36,3,38,Parker Messick,SP,Cleveland Guardians,25,6.31,,,,,,,12,0,0,193,2.56,1.06,2.4,186,上升股、近兩季出賽不足
-37,4,41,Rafael Devers,1B,San Francisco Giants,29,6.31,88,37,98,0,0.258,0.865,,,,,,,,,
-38,4,42,Mason Miller,RP,San Diego Padres,27,6.25,,,,,,,5,38,0,129,1.67,0.90,3.3,70,
-39,4,43,Nick Martinez,SP,Tampa Bay Rays,35,6.22,,,,,,,15,0,0,109,3.10,1.09,1.3,180,
-40,4,47,TJ Rumfield,1B,Colorado Rockies,26,6.16,67,16,73,0,0.300,0.843,,,,,,,,,上升股
-41,4,44,Seiya Suzuki,OF,Chicago Cubs,31,6.13,96,26,86,3,0.270,0.841,,,,,,,,,
-42,4,35,Jake Bauers,1B,Milwaukee Brewers,30,5.92,93,26,86,11,0.266,0.873,,,,,,,,,近兩季出賽不足
-43,4,39,Jake McCarthy,OF,Colorado Rockies,28,5.77,80,15,83,32,0.291,0.809,,,,,,,,,OPS 比 2025 進步 +0.217、近兩季出賽不足
-44,4,46,Dylan Cease,SP,Toronto Blue Jays,30,5.77,,,,,,,11,0,0,239,2.40,1.10,4.2,169,保送偏多 BB/9 4.2
-45,4,48,Logan Henderson,SP,Milwaukee Brewers,24,5.32,,,,,,,11,0,0,110,2.47,0.84,1.7,98,上升股、近兩季出賽不足
-46,4,50,Juan Soto,OF,New York Mets,27,5.30,63,27,68,9,0.275,0.908,,,,,,,,,
-47,4,62,Carson Benge,OF,New York Mets,23,5.29,86,20,65,22,0.282,0.776,,,,,,,,,上升股
-48,4,49,Chase Burns,SP,Cincinnati Reds,23,5.25,,,,,,,15,0,0,185,2.86,1.17,3.3,154,上升股、近兩季出賽不足
-49,5,52,Brandon Lowe,2B,Pittsburgh Pirates,31,5.24,94,35,96,2,0.260,0.824,,,,,,,,,
-50,5,53,Kevin Kelly,RP,Tampa Bay Rays,28,5.24,,,,,,,6,4,33,63,2.44,0.90,1.3,74,
-51,5,56,Bryan Baker,RP,Tampa Bay Rays,31,5.12,,,,,,,4,41,2,63,1.44,0.91,3.2,62,
-52,5,57,Garrett Whitlock,RP,Boston Red Sox,30,5.03,,,,,,,7,4,26,59,1.72,0.90,1.5,52,
-53,5,58,Luis Arraez,2B,Philadelphia Phillies,29,4.98,67,6,64,10,0.310,0.764,,,,,,,,,
-54,5,59,Louis Varland,RP,Toronto Blue Jays,28,4.95,,,,,,,5,35,5,97,1.27,1.00,2.7,78,
-55,5,71,Shohei Ohtani,DH,Los Angeles Dodgers,31,7.57,89,30,81,11,0.275,0.889,,,,,,,,,
+30,3,29,Shohei Ohtani,DH,Los Angeles Dodgers,31,7.57,89,30,81,11,0.275,0.889,,,,,,,,,
+31,3,27,Sal Stewart,1B,Cincinnati Reds,22,7.32,87,32,112,15,0.263,0.787,,,,,,,,,上升股、近兩季出賽不足
+32,3,31,Sonny Gray,SP,Boston Red Sox,36,7.19,,,,,,,18,0,0,149,2.72,1.15,2.4,169,
+33,3,33,Zack Wheeler,SP,Philadelphia Phillies,36,6.85,,,,,,,14,0,0,193,3.00,1.05,2.6,162,
+34,3,34,Cade Smith,RP,Cleveland Guardians,27,6.73,,,,,,,6,41,1,107,1.95,0.96,2.8,74,
+35,3,36,Matt Olson,1B,Atlanta Braves,32,6.65,99,41,93,4,0.251,0.823,,,,,,,,,
+36,3,45,Michael Harris II,OF,Atlanta Braves,25,6.44,79,26,87,12,0.294,0.812,,,,,,,,,上升股、OPS 比 2025 進步 +0.135
+37,4,38,Parker Messick,SP,Cleveland Guardians,25,6.31,,,,,,,12,0,0,193,2.56,1.06,2.4,186,上升股、近兩季出賽不足
+38,4,41,Rafael Devers,1B,San Francisco Giants,29,6.31,88,37,98,0,0.258,0.865,,,,,,,,,
+39,4,42,Mason Miller,RP,San Diego Padres,27,6.25,,,,,,,5,38,0,129,1.67,0.90,3.3,70,
+40,4,43,Nick Martinez,SP,Tampa Bay Rays,35,6.22,,,,,,,15,0,0,109,3.10,1.09,1.3,180,
+41,4,47,TJ Rumfield,1B,Colorado Rockies,26,6.16,67,16,73,0,0.300,0.843,,,,,,,,,上升股
+42,4,44,Seiya Suzuki,OF,Chicago Cubs,31,6.13,96,26,86,3,0.270,0.841,,,,,,,,,
+43,4,35,Jake Bauers,1B,Milwaukee Brewers,30,5.92,93,26,86,11,0.266,0.873,,,,,,,,,近兩季出賽不足
+44,4,39,Jake McCarthy,OF,Colorado Rockies,28,5.77,80,15,83,32,0.291,0.809,,,,,,,,,OPS 比 2025 進步 +0.217、近兩季出賽不足
+45,4,46,Dylan Cease,SP,Toronto Blue Jays,30,5.77,,,,,,,11,0,0,239,2.40,1.10,4.2,169,保送偏多 BB/9 4.2
+46,4,48,Logan Henderson,SP,Milwaukee Brewers,24,5.32,,,,,,,11,0,0,110,2.47,0.84,1.7,98,上升股、近兩季出賽不足
+47,4,50,Juan Soto,OF,New York Mets,27,5.30,63,27,68,9,0.275,0.908,,,,,,,,,
+48,4,62,Carson Benge,OF,New York Mets,23,5.29,86,20,65,22,0.282,0.776,,,,,,,,,上升股
+49,5,49,Chase Burns,SP,Cincinnati Reds,23,5.25,,,,,,,15,0,0,185,2.86,1.17,3.3,154,上升股、近兩季出賽不足
+50,5,52,Brandon Lowe,2B,Pittsburgh Pirates,31,5.24,94,35,96,2,0.260,0.824,,,,,,,,,
+51,5,53,Kevin Kelly,RP,Tampa Bay Rays,28,5.24,,,,,,,6,4,33,63,2.44,0.90,1.3,74,
+52,5,56,Bryan Baker,RP,Tampa Bay Rays,31,5.12,,,,,,,4,41,2,63,1.44,0.91,3.2,62,
+53,5,57,Garrett Whitlock,RP,Boston Red Sox,30,5.03,,,,,,,7,4,26,59,1.72,0.90,1.5,52,
+54,5,58,Luis Arraez,2B,Philadelphia Phillies,29,4.98,67,6,64,10,0.310,0.764,,,,,,,,,
+55,5,59,Louis Varland,RP,Toronto Blue Jays,28,4.95,,,,,,,5,35,5,97,1.27,1.00,2.7,78,
 56,5,60,Adrian Morejon,RP,San Diego Padres,27,4.94,,,,,,,9,3,28,107,2.83,1.08,2.9,86,
 57,5,54,Braxton Ashcraft,SP,Pittsburgh Pirates,26,4.89,,,,,,,14,0,0,173,3.65,1.09,1.9,165,上升股、近兩季出賽不足
 58,5,68,Andy Pages,OF,Los Angeles Dodgers,25,4.75,75,23,85,13,0.274,0.811,,,,,,,,,上升股

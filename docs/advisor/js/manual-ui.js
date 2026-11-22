@@ -2,7 +2,7 @@
 import { createGame, restoreGame } from './demo-manual.js';
 import { TEAMS, ROUNDS, assign } from './demo-sim.js';
 import { seasonStats, toMaps } from './mlb.js';
-import { buildPlayers, board as rankBoard } from './rank.js';
+import { buildPlayers, board as rankBoard, blendMaps } from './rank.js';
 import { buildConfig } from './strategies.js';
 import { CAT_LABEL } from './pickup.js';
 
@@ -26,7 +26,8 @@ async function prepare() {
   if (st.prep?.season === season) return st.prep;
   status(`準備資料：${season - 1} 年成績（選秀用）＋ ${season} 年逐週成績（重播用）…`);
   const [prev, prev2] = await Promise.all([seasonStats(season - 1), seasonStats(season - 2)]);
-  const base = buildPlayers(toMaps(prev), toMaps(prev2));
+  // 選秀用兩年資料加權（避免前一年受傷的球星沒人選）
+  const base = buildPlayers(blendMaps(toMaps(prev), toMaps(prev2)), toMaps(prev2));
   let weekly = null;
   try { const r = await fetch(`data/weekly-${season}.json`); if (r.ok) weekly = await r.json(); } catch { /* 略 */ }
   st.prep = { season, base, weekly };
@@ -68,11 +69,16 @@ async function newGame() {
 
 async function continueGame() {
   try {
+    status('讀取存檔中…（重播你的每一步，大約幾秒）');
+    $('#mn-continue').disabled = true;
+    await new Promise((r) => setTimeout(r, 30));
     await prepare();
     const s = lsGet(LS_SAVE, null);
     st.sel = s.sel;
     status('讀取存檔…');
+    await new Promise((r) => setTimeout(r, 30));
     st.g = restoreGame(boardFor(s.sel), s, { profiles: st.getProfiles(), weekly: st.prep.weekly });
+    $('#mn-continue').disabled = false;
     st.lastSeen = st.g.draftLog.length;
     status('');
     render();
@@ -84,12 +90,23 @@ function act(fn) {
 }
 
 // ── 共用小元件 ──
+const era = (l) => (l.IP ? ((l.ER * 9) / l.IP).toFixed(2) : '-');
+const whip = (l) => (l.IP ? (l.WH / l.IP).toFixed(2) : '-');
+const isSP = (p) => p.pos === 'SP';
 const pLine = (p) => (p.side === 'B'
   ? `R ${p.R}｜HR ${p.HR}｜RBI ${p.RBI}｜SB ${p.SB}｜AVG ${(p.AVG || 0).toFixed(3).replace(/^0/, '')}｜OPS ${(p.OPS || 0).toFixed(3).replace(/^0/, '')}`
-  : `${Math.round(p.IP)} 局｜W ${p.W}｜SV ${p.SV}｜HLD ${p.HLD}｜K ${p.K}｜ERA ${p.IP ? ((p.ER * 9) / p.IP).toFixed(2) : '-'}`);
-const recentLine = (l) => (l.side === 'B'
+  : isSP(p) ? `${Math.round(p.IP)} 局｜W ${p.W}｜K ${p.K}｜ERA ${era(p)}｜WHIP ${whip(p)}`
+    : `${Math.round(p.IP)} 局｜SV ${p.SV}｜HLD ${p.HLD}｜K ${p.K}｜ERA ${era(p)}`);
+const recentLine = (l, p) => (l.side === 'B'
   ? `每週 R ${l.R.toFixed(1)} HR ${l.HR.toFixed(1)} RBI ${l.RBI.toFixed(1)} SB ${l.SB.toFixed(1)} AVG ${(l.AVG || 0).toFixed(3).replace(/^0/, '')}`
-  : `每週 ${l.IP.toFixed(1)} 局 K ${l.K.toFixed(1)} SV ${l.SV.toFixed(1)} HLD ${l.HLD.toFixed(1)} ERA ${l.IP ? ((l.ER * 9) / l.IP).toFixed(2) : '-'}`);
+  : p && isSP(p) ? `每週 ${l.IP.toFixed(1)} 局 K ${l.K.toFixed(1)} W ${l.W.toFixed(1)} ERA ${era(l)} WHIP ${whip(l)}`
+    : `每週 ${l.IP.toFixed(1)} 局 SV ${l.SV.toFixed(1)} HLD ${l.HLD.toFixed(1)} K ${l.K.toFixed(1)} ERA ${era(l)}`);
+// 近況：🔥熱／普通／🧊冷；連兩週沒上場 = 🩹傷
+const formTag = (pv, p) => {
+  if (pv.injuredIds.has(p.id)) return '<span class="tag bad">🩹 傷</span>';
+  const f = pv.form(p);
+  return f > 8 ? '<span class="tag good">🔥 熱</span>' : f < -3 ? '<span class="tag warn">🧊 冷</span>' : '<span class="tag">普通</span>';
+};
 const probCls = (p) => (p > 0.6 ? 'good' : p >= 0.4 ? 'warn' : 'bad');
 const resCls = (w, l) => (w > l ? 'win' : w < l ? 'loss' : 'tie');
 const resTxt = (w, l) => (w > l ? '勝' : w < l ? '負' : '和');
@@ -100,11 +117,15 @@ function myScore(game) {
 }
 
 function rosterSummary(team) {
-  const tag = (side) => {
+  const miss = [];
+  const filled = { B: 0, P: 0 };
+  for (const side of ['B', 'P']) {
     const a = assign(team, side);
-    return a.slots.map((sl, i) => `<span class="tag ${a.filled[i] ? 'good' : 'bad'}">${esc(sl)}${a.filled[i] ? '' : ' 缺'}</span>`).join('');
-  };
-  return `<div class="mn-slots">${tag('B')}</div><div class="mn-slots" style="margin-top:4px">${tag('P')}</div>`;
+    a.slots.forEach((sl, i) => { if (a.filled[i]) filled[side]++; else miss.push(sl); });
+  }
+  const cnt = miss.reduce((m, x) => ((m[x] = (m[x] ?? 0) + 1), m), {});
+  const list = Object.entries(cnt).map(([k, n]) => (n > 1 ? `${k}×${n}` : k)).join('、');
+  return `<div class="sumline">先發打者 ${filled.B}/12、投手 ${filled.P}/11｜${miss.length ? `還缺：<b>${esc(list)}</b>` : '先發格子都有人了，接下來補板凳'}</div>`;
 }
 
 // ── 選秀畫面 ──
@@ -113,6 +134,8 @@ function renderDraft() {
   const tu = g.turn();
   const opt = g.draftOptions();
   const since = g.draftLog.slice(st.lastSeen).filter((x) => x.team !== g.mySlot);
+  const stolen = since.filter((x) => st.lastRec?.includes(x.player.id));
+  st.lastRec = opt.recommended.map((p) => p.id);
   const mine = g.teams[g.mySlot];
   const all = opt.all.filter((p) => (!st.q || p.name.toLowerCase().includes(st.q.toLowerCase())) && (!st.pos || st.pos === p.side || st.pos === p.pos)).slice(0, 60);
   const row = (p, primary = false) => `<div class="mn-row"><div><b>${esc(p.name)}</b> <span class="pos">${esc(p.pos)}</span> <span class="muted small">選秀表第 ${p.rank}｜市 ${p.marketRank}</span>
@@ -120,7 +143,8 @@ function renderDraft() {
       <button type="button" class="btn ${primary ? 'primary' : ''}" data-pick="${p.id}">選他</button></div>`;
   $('#mn-body').innerHTML = `
     <div class="card"><h3 class="first">選秀｜第 ${tu.round} 輪・總第 ${tu.overall} 位，輪到你（第 ${g.mySlot + 1} 順位）</h3>
-      ${since.length ? `<div class="sub muted small">你上次選完之後：${since.map((x) => `${esc(g.names[x.team])} 選 ${esc(x.player.name)}`).join('、')}</div>` : ''}
+      ${stolen.length ? `<div class="sumline">😣 你想要但被搶走：${stolen.map((x) => `<b>${esc(x.player.name)}</b>（${esc(g.names[x.team])}）`).join('、')}</div>` : ''}
+      ${since.length ? `<details class="sub muted small"><summary>其他隊這段時間選了 ${since.length} 人</summary>${since.map((x) => `${esc(g.names[x.team])} 選 ${esc(x.player.name)}`).join('、')}</details>` : ''}
       <h3>你的陣容（${mine.length}/${ROUNDS}）</h3>${rosterSummary(mine)}
       ${mine.length ? `<div class="sub muted small" style="margin-top:6px">${mine.map((p) => esc(p.name)).join('、')}</div>` : ''}
     </div>
@@ -143,7 +167,8 @@ function renderWeek() {
   if (last?.type === 'week') {
     const s = myScore(last.myGame);
     lastHtml = `<div class="card"><h3 class="first">第 ${last.week} 週結果 vs ${esc(g.names[s.opp])}：<span class="res ${resCls(s.w, s.l)}" style="font-weight:800">${s.w}-${s.l}-${s.t} ${resTxt(s.w, s.l)}</span></h3>
-      <div class="mn-cats">${s.cats.map(([c, r]) => `<span class="tag ${r === 'win' ? 'good' : r === 'loss' ? 'bad' : 'warn'}">${esc(CAT_LABEL[c])}</span>`).join('')}</div></div>`;
+      <div class="mn-cats">${s.cats.map(([c, r]) => `<span class="tag ${r === 'win' ? 'good' : r === 'loss' ? 'bad' : 'warn'}">${esc(CAT_LABEL[c])}</span>`).join('')}</div>
+      ${last.pred ? `<div class="muted small">賽前預估 ${last.pred.predWin} 類領先、${last.pred.predLoss} 類落後｜這週猜中 ${last.pred.hit}/${last.pred.n} 類</div>` : ''}</div>`;
   } else if (last?.type === 'playoff') {
     lastHtml = `<div class="card"><h3 class="first">第 ${last.week} 週季後賽結果</h3>${last.games.map((m) => `<div class="sumline">${esc(m.label)}：${esc(g.names[m.a])} ${m.res.w}-${m.res.l}-${m.res.t} ${esc(g.names[m.b])} → <b>${esc(g.names[m.winner])}</b> 晉級${m.winner === g.mySlot ? ' 🎉' : m.a === g.mySlot || m.b === g.mySlot ? ' 😢' : ''}</div>`).join('')}</div>`;
   }
@@ -156,36 +181,56 @@ function renderWeek() {
     ${pv.cats ? `<div class="mn-cats" style="margin-top:6px">${pv.cats.map((c) => `<span class="tag ${probCls(c.prob)}">${esc(c.label)} ${Math.round(c.prob * 100)}%</span>`).join('')}</div>
       <div class="muted small">預估勝率：${pv.cats.filter((c) => c.prob > 0.5).length} 類領先、${pv.cats.filter((c) => c.prob < 0.5).length} 類落後｜你的弱項：${pv.weak.map(esc).join('、')}</div>` : ''}</div>`;
 
+  pv.injuredIds = new Set(pv.injured.map((p) => p.id));
+  const dropSel = (side, forId) => {
+    const opts = g.teams[g.mySlot].filter((p) => p.side === side).sort((a, b) => pv.form(a) - pv.form(b))
+      .map((p) => { const h = forId != null && pv.holesIf(forId, p.id) > 0; return `<option value="${p.id}">丟 ${esc(p.name)}${h ? '（會空出守位）' : ''}</option>`; }).join('');
+    return (pv.room > 0 ? '<option value="">不丟（有空位）</option>' : '') + opts;
+  };
+  const ilCard = (pv.injured.length || pv.il.length || pv.room > 0) ? `<div class="card"><h3 class="first">🩹 傷兵與 IL（${2 - pv.ilFree}/2 格）</h3>
+    ${pv.injured.map((p) => `<div class="mn-row"><div><b>${esc(p.name)}</b> <span class="pos">${esc(p.pos)}</span> <span class="tag bad">連兩週沒上場</span></div>
+      ${pv.ilFree > 0 ? `<button type="button" class="btn" data-il="${p.id}">移到 IL</button>` : '<span class="muted small">IL 已滿</span>'}</div>`).join('')}
+    ${pv.il.map((x) => `<div class="mn-row"><div><span class="slot">IL</span> <b>${esc(x.p.name)}</b> ${x.healthy ? '<span class="tag good">已歸隊上場</span>' : '<span class="tag">還在養傷</span>'}
+      ${x.healthy && pv.room <= 0 ? `<div><select class="mn-drop" data-unildrop="${x.p.id}">${dropSel(x.p.side, null)}</select></div>` : ''}</div>
+      ${x.healthy ? `<button type="button" class="btn" data-unil="${x.p.id}">回到陣容</button>` : ''}</div>`).join('')}
+    ${pv.room > 0 ? `<div class="sumline">陣容有 <b>${pv.room}</b> 個空位，可以直接撿人、不用丟人。</div>` : ''}</div>` : '';
+  let bracketHtml = '';
+  if (isPO) {
+    const sd = g.seeds;
+    const rows = g.bracket.map((m) => `<div class="sumline">第 ${m.week} 週・${esc(m.label)}：${esc(g.names[m.a])}（${sd.indexOf(m.a) + 1} 種）vs ${esc(g.names[m.b])}（${sd.indexOf(m.b) + 1} 種）${m.winner != null ? ` → <b>${esc(g.names[m.winner])}</b>` : ''}</div>`).join('');
+    bracketHtml = `<div class="card"><h3 class="first">🏟 季後賽對戰表</h3><div class="sumline">你是第 <b>${sd.indexOf(g.mySlot) + 1}</b> 種子（1、2 種子第 24 週輪空）</div>
+      <div class="muted small">種子：${sd.slice(0, 6).map((t, i) => `${i + 1}. ${esc(g.names[t])}`).join('　')}</div>${rows}</div>`;
+  }
   const sugg = `<div class="card"><h3 class="first">撿人建議（整隊每週預估多贏幾類）</h3>
-    ${pv.options.length ? pv.options.map((o) => `<div class="mn-row"><div>撿 <b>${esc(o.add.name)}</b> <span class="pos">${esc(o.add.pos)}</span>${o.add.rookie ? ' <span class="tag warn">新人</span>' : ''} 丟 ${esc(o.drop.name)}
-        <div class="sub">${esc(recentLine(pv.recent(o.add)))}</div><div class="note">每週多贏 ${o.gain.toFixed(2)} 類</div></div>
-        <button type="button" class="btn" data-move="${o.add.id}:${o.drop.id}">撿</button></div>`).join('') : '<p class="muted small">自由球員裡目前沒有能讓你變強的人。</p>'}
+    ${pv.options.length ? pv.options.map((o) => `<div class="mn-row"><div>撿 <b>${esc(o.add.name)}</b> <span class="pos">${esc(o.add.pos)}</span>${o.add.rookie ? ' <span class="tag warn">新人</span>' : ''} ${o.drop ? `丟 ${esc(o.drop.name)}` : '（補空位，不用丟人）'}
+        <div class="sub">${esc(recentLine(pv.recent(o.add), o.add))}</div><div class="note">每週多贏 ${o.gain.toFixed(2)} 類</div></div>
+        <button type="button" class="btn" data-move="${o.add.id}:${o.drop?.id ?? ''}">撿</button></div>`).join('') : '<p class="muted small">自由球員裡目前沒有能讓你變強的人。</p>'}
     <div class="mn-actions"><button type="button" class="btn" data-act="auto-moves">照建議撿（最多 2 人）</button></div></div>`;
 
   const fa = g.searchFA(st.faQ, st.faSide);
-  const dropOpts = (side) => g.teams[g.mySlot].filter((p) => p.side === side).sort((a, b) => pv.form(a) - pv.form(b)).map((p) => `<option value="${p.id}">丟 ${esc(p.name)}</option>`).join('');
   const manual = `<details class="card"><summary>自己找人撿</summary>
     <div class="toolbar" style="margin-top:8px"><input id="mn-faq" type="search" placeholder="搜尋自由球員" value="${esc(st.faQ)}">
       <select id="mn-faside"><option value="" ${st.faSide === '' ? 'selected' : ''}>全部</option><option value="B" ${st.faSide === 'B' ? 'selected' : ''}>打者</option><option value="P" ${st.faSide === 'P' ? 'selected' : ''}>投手</option></select></div>
-    ${fa.slice(0, 20).map((p) => `<div class="mn-row"><div><b>${esc(p.name)}</b> <span class="pos">${esc(p.pos)}</span>${p.rookie ? ' <span class="tag warn">新人</span>' : ''}<div class="sub">${esc(recentLine(pv.recent(p)))}</div>
-        <select class="mn-drop" data-dropfor="${p.id}">${dropOpts(p.side)}</select></div>
+    ${fa.slice(0, 20).map((p) => `<div class="mn-row"><div><b>${esc(p.name)}</b> <span class="pos">${esc(p.pos)}</span>${p.rookie ? ' <span class="tag warn">新人</span>' : ''}<div class="sub">${esc(recentLine(pv.recent(p), p))}</div>
+        <select class="mn-drop" data-dropfor="${p.id}">${dropSel(p.side, p.id)}</select></div>
         <button type="button" class="btn" data-manual="${p.id}">撿</button></div>`).join('')}</details>`;
 
   const starters = pv.lineup.filter((x) => x.p);
   const lu = `<details class="card" ${st.openLineup ? 'open' : ''} id="mn-lu-box"><summary>本週先發（預設照近況自動排）</summary>
-    ${starters.map((x) => `<div class="mn-row mn-lu"><div><span class="slot">${esc(x.slot)}</span> <b>${esc(x.p.name)}</b> <span class="muted small">近況 ${pv.form(x.p).toFixed(1)}</span></div>
+    ${starters.map((x) => `<div class="mn-row mn-lu"><div><span class="slot">${esc(x.slot)}</span> <b>${esc(x.p.name)}</b> ${formTag(pv, x.p)}</div>
       <button type="button" class="btn" data-lu="${x.p.id}:bench">坐板凳</button></div>`).join('')}
-    ${pv.bench.map((p) => `<div class="mn-row mn-lu bench"><div><span class="slot">板凳</span> <b>${esc(p.name)}</b> <span class="pos">${esc(p.pos)}</span> <span class="muted small">近況 ${pv.form(p).toFixed(1)}</span></div>
+    ${pv.bench.map((p) => `<div class="mn-row mn-lu bench"><div><span class="slot">板凳</span> <b>${esc(p.name)}</b> <span class="pos">${esc(p.pos)}</span> ${formTag(pv, p)}</div>
       <button type="button" class="btn" data-lu="${p.id}:start">上先發</button></div>`).join('')}
     <div class="mn-actions"><button type="button" class="btn" data-act="lu-reset">照近況自動排</button></div></details>`;
 
   const standHtml = stand ? `<details class="card"><summary>排名</summary><table class="tbl"><tbody>${stand.map((x, i) => `<tr class="${x.team === g.mySlot ? 'me' : ''} ${i === 5 ? 'cut' : ''}"><td>${i + 1}</td><td>${esc(g.names[x.team])}</td><td>${x.w}-${x.l}-${x.t}</td><td>${x.mw}-${x.ml}</td></tr>`).join('')}</tbody></table></details>` : '';
 
-  $('#mn-body').innerHTML = lastHtml + head + (pv.opp != null ? sugg + manual + lu : '') + standHtml + `
-    <div class="mn-sticky"><div class="mn-actions">
-      <button type="button" class="btn primary" data-act="play">▶ 開打第 ${pv.week} 週</button>
-      ${pv.opp != null ? '<button type="button" class="btn" data-act="auto-play">照建議撿＋開打</button>' : ''}
-      <button type="button" class="btn" data-act="auto-rest">⏭ 剩下全自動</button></div></div>`;
+  const out = isPO && pv.opp == null && !(g.seeds.indexOf(g.mySlot) <= 1 && pv.week === 24);
+  const bar = out
+    ? `<button type="button" class="btn primary" data-act="play">▶ 看第 ${pv.week} 週</button><button type="button" class="btn" data-act="auto-rest">⏭ 直接看結果</button>`
+    : `<button type="button" class="btn primary" data-act="play">▶ 開打第 ${pv.week} 週</button>${pv.opp != null ? '<button type="button" class="btn" data-act="auto-play">照建議＋開打</button>' : ''}<button type="button" class="btn" data-act="auto-rest">⏭ 全自動</button>`;
+  $('#mn-body').innerHTML = lastHtml + bracketHtml + head + (pv.opp != null ? ilCard + sugg + manual + lu : '') + standHtml + `
+    <div class="mn-sticky"><div class="mn-bar">${bar}</div></div>`;
 }
 
 // ── 結算 ──
@@ -200,7 +245,23 @@ function renderDone() {
       <div class="muted">你例行賽第 ${g.myRank()} 名｜整季換人 ${150 - g.budget} 次｜對手共換人 ${g.aiTotal} 次</div>
       <div class="sumline" style="margin-top:8px">同一場選秀順位、同一個亂數，如果全照 App 建議：例行賽第 ${c.myRank} 名${c.champ ? '，而且拿冠軍' : `，冠軍是 ${esc(c.champName)}`}</div>
       <div class="mn-actions"><button type="button" class="btn primary" data-act="new">🔁 再玩一季</button></div></div>
+    ${recapHtml(g)}
     ${last?.games ? `<div class="card"><h3 class="first">冠軍戰</h3>${last.games.map((m) => `<div class="sumline">${esc(g.names[m.a])} ${m.res.w}-${m.res.l}-${m.res.t} ${esc(g.names[m.b])}</div>`).join('')}</div>` : ''}`;
+}
+
+function recapHtml(g) {
+  const r = g.recap();
+  const fmt = (v) => (v >= 0 ? '+' : '') + v.toFixed(1);
+  const line = [];
+  if (r.missed) line.push(`例行賽第 ${g.myRank()} 名，沒擠進前 6 名季後賽。`);
+  else if (r.out) line.push(`以第 ${r.seed} 種子進季後賽，在<b>${esc(r.out.label)}</b>被 <b>${esc(g.names[r.out.by])}</b> 淘汰（${r.out.a === g.mySlot ? `${r.out.res.w}-${r.out.res.l}-${r.out.res.t}` : `${r.out.res.l}-${r.out.res.w}-${r.out.res.t}`}）。`);
+  else if (g.champ === g.mySlot) line.push(`以第 ${r.seed} 種子一路打到冠軍 🏆`);
+  return `<div class="card"><h3 class="first">📋 本季回顧</h3>
+    ${line.map((x) => `<div class="sumline">${x}</div>`).join('')}
+    ${r.steal ? `<div class="sumline">💎 選秀最賺：第 ${r.steal.round} 輪的 <b>${esc(r.steal.player.name)}</b>（整季價值 ${fmt(r.steal.total)}）</div>` : ''}
+    ${r.bust ? `<div class="sumline">💥 選秀最虧：第 ${r.bust.round} 輪的 <b>${esc(r.bust.player.name)}</b>（整季價值 ${fmt(r.bust.total)}）</div>` : ''}
+    ${r.bestAdd ? `<div class="sumline">🎯 最佳撿人：第 ${r.bestAdd.week + 1} 週撿的 <b>${esc(r.bestAdd.add.name)}</b>（在你隊上貢獻 ${fmt(r.bestAdd.total)}）</div>` : ''}
+    ${r.accuracy != null ? `<div class="sumline">🔮 賽前預估命中率：${Math.round(r.accuracy * 100)}%（每類預估勝負跟實際對得上的比例，50% 等於亂猜）</div>` : ''}</div>`;
 }
 
 function render() {
@@ -222,9 +283,12 @@ export function initManual({ getSelection, getSeason, getProfiles }) {
     const b = e.target.closest('button');
     if (!b) return;
     const g = st.g;
-    if (b.dataset.pick) return act(() => { st.lastSeen = g.draftLog.length + 1; g.draftPick(Number(b.dataset.pick)); st.q = ''; });
-    if (b.dataset.move) { const [a, d] = b.dataset.move.split(':').map(Number); return act(() => g.move(a, d)); }
-    if (b.dataset.manual) { const d = Number(body.querySelector(`[data-dropfor="${b.dataset.manual}"]`).value); return act(() => g.move(Number(b.dataset.manual), d)); }
+    const top = () => window.scrollTo(0, 0);
+    if (b.dataset.pick) return act(() => { st.lastSeen = g.draftLog.length + 1; g.draftPick(Number(b.dataset.pick)); st.q = ''; top(); });
+    if (b.dataset.move) { const [a, d] = b.dataset.move.split(':'); return act(() => g.move(Number(a), d ? Number(d) : null)); }
+    if (b.dataset.manual) { const d = body.querySelector(`[data-dropfor="${b.dataset.manual}"]`).value; return act(() => g.move(Number(b.dataset.manual), d ? Number(d) : null)); }
+    if (b.dataset.il) return act(() => g.toIL(Number(b.dataset.il)));
+    if (b.dataset.unil) { const sel = body.querySelector(`[data-unildrop="${b.dataset.unil}"]`); return act(() => g.fromIL(Number(b.dataset.unil), sel?.value ? Number(sel.value) : null)); }
     if (b.dataset.lu) {
       const [id, v] = b.dataset.lu.split(':');
       st.openLineup = true;
@@ -234,7 +298,7 @@ export function initManual({ getSelection, getSeason, getProfiles }) {
       return;
     }
     const a = b.dataset.act;
-    if (a === 'draft-auto1') return act(() => { st.lastSeen = g.draftLog.length + 1; g.draftPick(g.draftOptions().recommended[0].id); });
+    if (a === 'draft-auto1') return act(() => { st.lastSeen = g.draftLog.length + 1; g.draftPick(g.draftOptions().recommended[0].id); top(); });
     if (a === 'draft-rest') return act(() => g.autoDraftRest());
     if (a === 'auto-moves') return act(() => { const n = g.autoMoves(); if (!n) setTimeout(() => status('目前沒有值得換的人。'), 0); });
     if (a === 'lu-reset') return act(() => g.resetLineup());

@@ -139,7 +139,8 @@ export function board(basePlayers, config = {}) {
   // 市場排名：不帶偏好的均衡原始分數
   const market = basePlayers.map((p) => ({ ...p }));
   zScore(market, {});
-  const mrank = new Map([...market].sort((a, b) => b.raw - a.raw).map((p, i) => [p.id, i + 1]));
+  // 二刀流（例：Ohtani）打者、投手同一個 MLB 編號 → 用「打/投＋編號」當 key
+  const mrank = new Map([...market].sort((a, b) => b.raw - a.raw).map((p, i) => [`${p.side}${p.id}`, i + 1]));
 
   const mine = basePlayers.map((p) => ({ ...p }));
   zScore(mine, cfg.weights);
@@ -147,7 +148,7 @@ export function board(basePlayers, config = {}) {
   mine.sort((a, b) => b.value - a.value);
   mine.forEach((p, i) => {
     p.myRank = i + 1;
-    p.marketRank = mrank.get(p.id);
+    p.marketRank = mrank.get(`${p.side}${p.id}`);
     p.key = Math.max(i + 1, p.marketRank - cfg.maxReach);
   });
   if (cfg.keyTransform) {
@@ -161,4 +162,36 @@ export function board(basePlayers, config = {}) {
     p.round = Math.ceil((i + 1) / 12);
   });
   return mine;
+}
+
+// 兩年資料加權（Demo 選秀用）：最近一季 65%、前一季 35%；
+// 最近一季出賽不到前一季的 6 成（多半是受傷）就改成 40%／60%；整季沒出賽的只用前一季打 5 折
+export function blendMaps(cur, prev) {
+  const out = { hit: new Map(), pit: new Map() };
+  for (const side of ['hit', 'pit']) {
+    const vol = (st) => (side === 'hit' ? st.plateAppearances ?? st.atBats ?? 0 : st._ip ?? ipToFloat(st.inningsPitched));
+    const ids = new Set([...cur[side].keys(), ...prev[side].keys()]);
+    for (const id of ids) {
+      const c = cur[side].get(id);
+      const p = prev[side].get(id);
+      if (!p) { out[side].set(id, c); continue; }
+      const k = c ? (vol(c.stat) < 0.6 * vol(p.stat) ? 0.4 : 0.65) : 0;
+      const base = c ?? p;
+      const st = {};
+      const cs = c?.stat ?? {};
+      const ps = p.stat;
+      for (const key of new Set([...Object.keys(cs), ...Object.keys(ps)])) {
+        const a = cs[key];
+        const b = ps[key];
+        if (key === 'age') st.age = cs.age ?? (ps.age != null ? ps.age + 1 : null);
+        else if (key === 'ops') st.ops = String(k * (Number(a) || 0) + (1 - k) * (Number(b) || 0) * (c ? 1 : 1));
+        else if (typeof (a ?? b) === 'number') st[key] = c ? k * (a ?? 0) + (1 - k) * (b ?? 0) : 0.5 * (b ?? 0);
+      }
+      const ip = c ? k * vol(cs) + (1 - k) * vol(ps) : 0.5 * vol(ps);
+      if (side === 'pit') { st._ip = ip; st.inningsPitched = String(Math.floor(ip)); }
+      if (!c && side === 'hit') st.ops = String(Number(ps.ops) || 0);
+      out[side].set(id, { ...base, stat: st });
+    }
+  }
+  return out;
 }

@@ -152,7 +152,11 @@ function describe(pref, reach, age, firstRP, favTeam) {
 }
 
 // ── 選秀 ──
+// 二刀流（打者、投手同一個 MLB 編號）在 Demo 裡只留排名前面的那一個
+export const uniqueById = (players) => { const seen = new Set(); return [...players].sort((a, b) => (a.rank ?? 9999) - (b.rank ?? 9999)).filter((p) => !seen.has(p.id) && seen.add(p.id)); };
+
 export function draft(players, { mySlot, profiles, r }) {
+  players = uniqueById(players);
   const avail = new Map(players.map((p) => [p.id, p]));
   const teams = Array.from({ length: TEAMS }, () => []);
   const ai = [];
@@ -314,6 +318,9 @@ export function makeWorld(players, weekly) {
       const prior = seasonWeekly(p);
       const k = Math.max(0.5, 2.5 - w / 6);
       line = weighted(p.side, [[recent, 1], [toDate, 1], [prior, k]]);
+      // 連兩週沒上場（受傷或下放）→ 這週預期也是 0
+      const out = (x) => { const l = actual(p, x); return p.side === 'B' ? !l.PA : !l.IP; };
+      if (w >= 2 && out(w - 1) && out(w - 2)) line = weighted(p.side, [[actual(p, -1), 1]]);
     }
     formCache.set(key, line);
     return line;
@@ -337,7 +344,15 @@ export function makeWorld(players, weekly) {
     }
     return scoreCache.get(key);
   };
-  return { actual, form, score, real: !!weekly };
+  // 那一週有沒有上場；連兩週沒上場 = 受傷或下放
+  const played = (p, w) => { const l = actual(p, w); return p.side === 'B' ? l.PA > 0 : l.IP > 0; };
+  const injured = (p, w) => !!weekly && w >= 2 && !played(p, w - 1) && !played(p, w - 2);
+  // 真實那一週的價值（季末回顧用）
+  const actScore = (p, w) => {
+    const c = contributions(actual(p, w));
+    return Object.entries(c).reduce((a, [cat, v]) => a + (v - stat[cat][0]) / stat[cat][1], 0);
+  };
+  return { actual, form, score, played, injured, actScore, real: !!weekly };
 }
 
 // 依近況排先發；overrides：Map(id → 'start' | 'bench') 手動指定
@@ -386,8 +401,15 @@ export function swap(team, freeAgents, drop, add) {
   freeAgents.set(drop.id, drop);
 }
 
-// 撿人建議（不執行）：每個候選人配一個最適合丟掉的人，算整隊每週預估多贏幾類
-export function pickupOptions(teams, freeAgents, mySlot, world, w, { top = 12 } = {}) {
+// 先發有幾格是空的（沒人能守）
+export const holes = (team, world, w) => lineupSlots(team, world, w).filter((x) => !x.p).length;
+// 球星保護：丟人要扣他的整季價值（季前評價），越到季末扣得越少
+export const keepPenalty = (p, w, world) => Math.max(0, p.value ?? 0) * 0.04 * Math.max(0.3, 1 - w / 26) * (world?.injured?.(p, w) ? 0.3 : 1);
+
+// 撿人建議（不執行）：
+// ① 撿來的人要真的排進先發 ② 不能讓先發多出空格 ③ 丟人要扣整季價值 ④ 每個撿／丟對象只列一次
+// room：陣容有空位（例如把傷兵移到 IL 後）時，可以只撿不丟
+export function pickupOptions(teams, freeAgents, mySlot, world, w, { top = 15 } = {}) {
   const myTeam = teams[mySlot];
   const others = teams.filter((_, i) => i !== mySlot).map((t) => teamLine(lineupW(t, world, w).map((p) => world.form(p, w))));
   const typical = {};
@@ -396,49 +418,56 @@ export function pickupOptions(teams, freeAgents, mySlot, world, w, { top = 12 } 
   const gaps = CATS.map((c) => [c, margin(c, mine, typical) / scale(c, typical)]);
   const weak = [...gaps].sort((a, b) => a[1] - b[1]).slice(0, 3).map(([c]) => CAT_LABEL[c]);
   const base = expectedWins(myTeam, typical, world, w);
-  const cands = [...freeAgents.values()].sort((a, b) => world.score(b, w) - world.score(a, w)).slice(0, top);
-  const options = [];
-  for (const add of cands) {
-    let best = null;
-    for (const drop of myTeam) {
-      if (drop.side !== add.side) continue;
-      const gain = expectedWins(myTeam.map((p) => (p === drop ? add : p)), typical, world, w) - base;
-      if (!best || gain > best.gain) best = { add, drop, gain };
+  const holes0 = holes(myTeam, world, w);
+  const room = myTeam.length < 25;
+  const byForm = [...freeAgents.values()].sort((a, b) => world.score(b, w) - world.score(a, w));
+  const cands = byForm.slice(0, top);
+  // 先發有空格：把能守空格位置的人也列進候選（近況最好的前 4 個）
+  if (holes0 > 0) {
+    const empty = lineupSlots(myTeam, world, w).filter((x) => !x.p).map((x) => x.slot);
+    for (const sl of new Set(empty)) {
+      for (const p of byForm.filter((x) => fits(x, sl)).slice(0, 4)) if (!cands.includes(p)) cands.push(p);
     }
-    if (best) options.push(best);
   }
-  options.sort((a, b) => b.gain - a.gain);
-  return { weak, gaps, typical, options, base };
+  const all = [];
+  for (const add of cands) {
+    const drops = room ? [null] : myTeam.filter((p) => p.side === add.side);
+    for (const drop of drops) {
+      const trial = drop ? myTeam.map((p) => (p === drop ? add : p)) : [...myTeam, add];
+      if (!lineupW(trial, world, w).includes(add)) continue;
+      if (holes(trial, world, w) > holes0) continue;
+      const gain = expectedWins(trial, typical, world, w) - base;
+      const filled = holes0 - holes(trial, world, w);
+      all.push({ add, drop, gain, fillsHole: filled > 0, score: gain + filled * 0.5 - (drop ? keepPenalty(drop, w, world) : 0) });
+    }
+  }
+  all.sort((a, b) => b.score - a.score);
+  const usedAdd = new Set();
+  const usedDrop = new Set();
+  const options = [];
+  for (const o of all) {
+    if (usedAdd.has(o.add.id) || (o.drop && usedDrop.has(o.drop.id))) continue;
+    usedAdd.add(o.add.id);
+    if (o.drop) usedDrop.add(o.drop.id);
+    options.push(o);
+  }
+  return { weak, gaps, typical, options, base, room };
 }
 
-// 我方：試算「換人前後整隊每週預估多贏幾類」，有提升才換（每週最多 2 次）
+// 我方自動：照建議換人，有明顯提升才換（每週最多 2 次）
 export function pickupStep(teams, freeAgents, budget, mySlot, world, w) {
   const myTeam = teams[mySlot];
-  const others = teams.filter((_, i) => i !== mySlot).map((t) => teamLine(lineupW(t, world, w).map((p) => world.form(p, w))));
-  const typical = {};
-  for (const c of CATS) typical[c] = others.reduce((a, l) => a + l[c], 0) / others.length;
-  const mine = teamLine(lineupW(myTeam, world, w).map((p) => world.form(p, w)));
-  const weak = CATS.map((c) => [c, margin(c, mine, typical) / scale(c, typical)]).sort((a, b) => a[1] - b[1]).slice(0, 3).map(([c]) => CAT_LABEL[c]);
   const moves = [];
   let top = [];
+  let weak = [];
   for (let k = 0; k < 2 && budget - moves.length > 0; k++) {
-    const base = expectedWins(myTeam, typical, world, w);
-    const cands = [...freeAgents.values()].sort((a, b) => world.score(b, w) - world.score(a, w)).slice(0, 12);
-    const options = [];
-    for (const add of cands) {
-      let best = null;
-      for (const drop of myTeam) {
-        if (drop.side !== add.side) continue;
-        const gain = expectedWins(myTeam.map((p) => (p === drop ? add : p)), typical, world, w) - base;
-        if (!best || gain > best.gain) best = { add, drop, gain };
-      }
-      if (best) options.push(best);
-    }
-    options.sort((a, b) => b.gain - a.gain);
-    if (k === 0) top = options.slice(0, 3);
-    if (!options[0] || options[0].gain <= 0.05) break;
-    swap(myTeam, freeAgents, options[0].drop, options[0].add);
-    moves.push(options[0]);
+    const pk = pickupOptions(teams, freeAgents, mySlot, world, w);
+    if (k === 0) { top = pk.options.slice(0, 3); weak = pk.weak; }
+    const best = pk.options[0];
+    if (!best || best.score <= 0.05) break;
+    if (best.drop) swap(myTeam, freeAgents, best.drop, best.add);
+    else { myTeam.push(best.add); freeAgents.delete(best.add.id); }
+    moves.push(best);
   }
   return { weak, top, moves, move: moves[0] ?? null };
 }
@@ -461,12 +490,14 @@ export function aiMoves(teams, freeAgents, ai, mySlot, world, w, r) {
 
 export function newcomers(players, weekly) {
   if (!weekly) return [];
-  const known = new Set(players.map((p) => `${p.side}${p.id}`));
+  // 用編號判斷（二刀流打者、投手同編號，不能被當成新人再加一次）
+  const known = new Set(players.map((p) => p.id));
   const out = [];
   for (const [key, v] of Object.entries(weekly.players)) {
-    if (known.has(key)) continue;
     const side = key[0];
     const id = Number(key.slice(1));
+    if (known.has(id)) continue;
+    known.add(id);
     const gs = side === 'P' ? v.w.reduce((a, r) => a + (r ? r[9] : 0), 0) : 0;
     const pos = side === 'P' ? (gs >= 5 ? 'SP' : 'RP') : ['LF', 'CF', 'RF'].includes(v.pos) ? 'OF' : v.pos || 'DH';
     out.push({ id, name: v.n, side, pos, team: '', age: null, value: -99, rank: 9999, marketRank: 9999, rookie: true,
@@ -478,6 +509,7 @@ export function newcomers(players, weekly) {
 // ── 跑完整一季 → 事件清單（給畫面逐步播放） ──
 // weekly：2026 真實逐週資料（有就「重播」，沒有就用整季平均＋隨機）
 export function runSeason(players, { mySlot, profiles, seed, teamNames, weekly = null }) {
+  players = uniqueById(players);
   const r = rng(seed);
   const d = draft(players, { mySlot, profiles, r });
   const world = makeWorld(players, weekly);
