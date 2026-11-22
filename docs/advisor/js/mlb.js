@@ -53,12 +53,20 @@ async function getJson(u) {
   return r.json();
 }
 
-// 整季數據；已結束的球季永久快取，進行中的球季 6 小時更新一次
-export async function seasonStats(season, { maxAgeMs = 6 * 3600e3 } = {}) {
+// 抓的頻率：一天最多一次（同一天內一律用手機裡存好的，不重抓）
+const sameDay = (t) => t && new Date(t).toDateString() === new Date().toDateString();
+
+// 最近一次真的去 MLB 抓整季數據的時間（給畫面顯示用）
+export function lastFetched(season) {
+  return cacheGet(`mlb.season.${season}`)?.at ?? null;
+}
+
+// 整季數據：已結束的球季抓一次就永久存著；進行中的球季一天最多抓一次
+export async function seasonStats(season) {
   const key = `mlb.season.${season}`;
   const c = cacheGet(key);
   const finished = season < new Date().getFullYear() || new Date().getMonth() >= 10;
-  if (c && (finished || Date.now() - c.at < maxAgeMs)) return c.data;
+  if (c && (finished || sameDay(c.at))) return c.data;
   const [h, p] = await Promise.all([
     getJson(url('hitting', `stats=season&season=${season}`)),
     getJson(url('pitching', `stats=season&season=${season}`)),
@@ -72,7 +80,7 @@ export async function seasonStats(season, { maxAgeMs = 6 * 3600e3 } = {}) {
 export async function rangeStats(start, end) {
   const key = `mlb.range.${start}.${end}`;
   const c = cacheGet(key);
-  if (c && Date.now() - c.at < 3 * 3600e3) return c.data;
+  if (c && sameDay(c.at)) return c.data;
   const extra = `stats=byDateRange&startDate=${start}&endDate=${end}&season=${start.slice(0, 4)}`;
   const [h, p] = await Promise.all([getJson(url('hitting', extra)), getJson(url('pitching', extra))]);
   const data = { hit: h.stats?.[0]?.splits ?? [], pit: p.stats?.[0]?.splits ?? [] };

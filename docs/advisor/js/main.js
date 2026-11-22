@@ -1,4 +1,4 @@
-import { seasonStats, toMaps } from './mlb.js';
+import { seasonStats, toMaps, lastFetched } from './mlb.js';
 import { buildPlayers, board } from './rank.js';
 import { BASE, STRATEGIES, PREFS, buildConfig } from './strategies.js';
 import { initPickup } from './pickup-ui.js';
@@ -122,7 +122,9 @@ function renderBoard() {
   $('#board').innerHTML = rows.join('') || '<li class="muted">沒有符合的球員</li>';
   const mine = Object.values(state.marks).filter((m) => m === 'mine').length;
   const taken = Object.values(state.marks).filter((m) => m === 'taken').length;
-  $('#board-meta').textContent = `依 ${state.season} 季（含 ${state.season - 1} 季判斷傷病）MLB 官方數據｜我選了 ${mine} 人、被選走 ${taken} 人｜「市」＝市場排名｜往右滑＝我選、往左滑＝被選，點一下看詳情`;
+  const at = lastFetched(state.season);
+  const atTxt = at ? `｜MLB 數據 ${new Date(at).toLocaleDateString('zh-TW', { month: 'numeric', day: 'numeric' })} 抓的（${state.season} 季已結束就不再抓；季中一天最多抓一次）` : '';
+  $('#board-meta').textContent = `依 ${state.season} 季（含 ${state.season - 1} 季判斷傷病）MLB 官方數據｜我選了 ${mine} 人、被選走 ${taken} 人｜「市」＝市場排名｜往右滑＝我選、往左滑＝被選，點一下看詳情${atTxt}`;
 }
 
 // ── 標記（震動＋可復原） ──
