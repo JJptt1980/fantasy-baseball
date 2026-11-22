@@ -402,3 +402,8 @@ body.kb .tabbar, body.kb .toast { display: none; }
 /* 從別頁跳過來捲到卡片時，標題不被頂列蓋住 */
 details.card, .card, #mn-recs { scroll-margin-top: 64px; }
 .pk { cursor: pointer; }
+/* 橫向（畫面很矮）：搜尋列不固定，留空間給列表 */
+@media (max-height: 520px) {
+  #tab-draft > .toolbar { position: static; }
+  .large-title { font-size: 1.6rem; margin: 4px 0 8px; }
+}
