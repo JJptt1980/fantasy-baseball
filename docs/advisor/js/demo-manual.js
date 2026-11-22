@@ -91,8 +91,19 @@ export function createGame(players, { mySlot, profiles, seed, weekly, draftOnly 
       const have = new Set(recs.map((x) => x.p.id));
       recs = recs.concat(sorted.filter((p) => !have.has(p.id)).slice(0, 5 - recs.length).map((p) => ({ p, reasons: [] })));
     }
-    const recommended = recs.map((x) => ({ ...x.p, recReasons: x.reasons, fillSlot: x.fillSlot ?? null, staysNext: stayIds ? stayIds.has(x.p.id) : null }));
-    return { recommended, all: sorted, open, forced, left, next, between, needs: categoryNeeds(mine, players) };
+    const recommended = recs.map((x) => ({ ...x.p, recReasons: x.reasons, fillSlot: x.fillSlot ?? null, staysNext: stayIds ? stayIds.has(x.p.id) : null, recScore: x.score ?? null }));
+    // 每個推薦都給「選／不建議」＋一句理由；每輪只有第 1 名是「選」（順序照分數排，模擬起來最強）
+    const top = recommended[0];
+    for (const [i, p] of recommended.entries()) {
+      const close = top && p.recScore != null && top.recScore != null && p.recScore >= top.recScore - Math.abs(top.recScore) * 0.1;
+      if (i === 0) p.verdict = { pick: true, why: p.staysNext === false ? '現在最好的選擇，而且下次輪到你時他多半已經被選走' : '現在最好的選擇' };
+      else if (!p.fillSlot && open.length) p.verdict = { pick: false, why: '他的位置你已經有人了，選了只能當替補' };
+      else if (close) p.verdict = { pick: false, why: `跟 ${top.name} 差不多強，但 ${top.name} 好一點點；真的比較喜歡他也可以選` };
+      else if (p.staysNext) p.verdict = { pick: false, why: `比 ${top.name} 弱一點，而且下次輪到你時他多半還在，到時再選` };
+      else p.verdict = { pick: false, why: `比 ${top.name} 弱，這輪先選 ${top.name}` };
+    }
+    const advice = top ? { id: top.id, why: top.verdict.why } : null;
+    return { recommended, advice, all: sorted, open, forced, left, next, between, needs: categoryNeeds(mine, players) };
   };
   g.draftPick = (id) => {
     if (g.phase !== 'draft') throw new Error('不在選秀階段');

@@ -423,3 +423,7 @@ details.card, .card, #mn-recs { scroll-margin-top: 64px; }
 /* 即時頁：日期一行左右滑，不要折成好幾行 */
 #lv-days { flex-wrap: nowrap; overflow-x: auto; -webkit-overflow-scrolling: touch; padding-bottom: 4px; }
 #lv-days .chip { flex: 0 0 auto; }
+.advice { background: var(--accent-soft); border-radius: 12px; padding: 10px 12px; margin-bottom: 8px; font-size: var(--fs-body); }
+.advice b { color: var(--accent-text); }
+.pick-row .verdict { font-size: var(--fs-sub); margin-top: 3px; color: var(--muted); }
+.pick-row .verdict.yes { color: var(--good); font-weight: 600; }

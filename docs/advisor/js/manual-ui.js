@@ -170,9 +170,10 @@ const recSentence = (p) => {
   const r = (p.recReasons ?? []).filter((x) => !/^選秀表第/.test(x));
   return r.length ? r.join('、') : reasonOf(p);
 };
-const nextTag = (p) => (p.staysNext == null ? '' : p.staysNext
-  ? '<span class="tag">下輪多半還在</span>'
-  : '<span class="tag warn">下輪前會被選走</span>');
+// 每個推薦：選／不建議 ＋ 理由
+const nextTag = (p) => (!p.verdict ? '' : p.verdict.pick
+  ? '<span class="tag good">✅ 選</span>'
+  : '<span class="tag">✋ 不建議</span>');
 
 function renderDraft() {
   const g = st.g;
@@ -188,7 +189,8 @@ function renderDraft() {
   const openTxt = Object.entries(openCnt).map(([k, n]) => (n > 1 ? `${k}×${n}` : k)).join('、');
   // 一列＝一位球員：點整列就是選他；右邊 ⓘ 看詳情
   const row = (p, i) => `<div class="pick-row ${i === 0 ? 'top' : ''}" data-pick="${p.id}" role="button" tabindex="0">
-      <div class="pk-main"><b>${i != null ? `${i + 1}. ` : ''}${esc(p.name)}</b> <span class="pos">${esc(p.pos)}</span> ${i != null ? nextTag(p) : ''}
+      <div class="pk-main"><b>${i != null ? `${i + 1}. ` : ''}${esc(p.name)}</b> <span class="pos">${esc(p.pos)}</span> ${i != null ? nextTag(p) : '<span class="tag">✋ 不建議</span>'}
+        <div class="verdict ${i != null && p.verdict?.pick ? 'yes' : ''}">${esc(i != null ? p.verdict?.why ?? '' : '比上面推薦的人弱，除非你特別想要他')}</div>
         <div class="why1">${esc(i != null ? recSentence(p) : reasonOf(p))}</div></div>
       <button type="button" class="info" data-card="${p.id}" aria-label="看 ${esc(p.name)} 的詳細資料">ⓘ</button></div>`;
   $('#mn-body').innerHTML = `
@@ -198,7 +200,9 @@ function renderDraft() {
       <div class="sumline">${opt.open.length ? `還缺：<b>${esc(openTxt)}</b>` : '先發位置都滿了，接下來選替補'}<span class="muted small">｜已選 ${mine.length}/${ROUNDS} 人</span></div>
     </div>
     ${opt.forced ? `<div class="ds-banner warn">只剩 ${opt.left} 輪，還有 ${opt.open.length} 個位置沒人（${esc(openTxt)}），所以只能選這些位置的人。</div>` : ''}
-    <div class="card" id="mn-recs"><h3 class="first">👆 點一下＝選他（點錯 6 秒內可「復原」）</h3>
+    <div class="card" id="mn-recs">
+      ${opt.advice ? `<div class="advice">👉 建議選：<b>${esc(opt.recommended.find((p) => p.id === opt.advice.id)?.name ?? '')}</b><div class="muted small">${esc(opt.advice.why)}</div></div>` : ''}
+      <h3>👆 點一下＝選他（點錯 6 秒內可「復原」）</h3>
       ${opt.recommended.map((p, i) => row(p, i)).join('')}
       <div class="mn-actions"><button type="button" class="btn" data-act="draft-rest">剩下的都讓 App 幫我選</button></div>
     </div>
@@ -222,7 +226,7 @@ function draftHelp() {
       <li>12 隊輪流選球員，一共 25 輪。輪到你時，上面會寫「輪到你選」。</li>
       <li><b>點一下球員＝選他。</b>點錯了，上面會跳出「復原」，6 秒內按就能反悔。</li>
       <li>想先看清楚再選，點球員右邊的 <b>ⓘ</b>。</li>
-      <li>App 推薦排在最上面，第 1 個通常最好。標<span class="tag warn">下輪前會被選走</span>的人，現在不選就沒了。</li>
+      <li>最上面的「👉 建議選」就是 App 覺得你現在該選的人，<b>不知道選誰就選他</b>。</li><li>每個人旁邊都寫了 <span class="tag good">✅ 選</span> 或 <span class="tag">✋ 不建議</span>，下面一行是理由。</li>
       <li>上面的「還缺」告訴你哪些位置還沒有人，記得補齊。</li>
       <li>不想一個一個選？按最下面「剩下的都讓 App 幫我選」。</li>
     </ol>
