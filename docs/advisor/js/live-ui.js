@@ -99,9 +99,9 @@ async function refresh() {
     const today = new Date().toISOString().slice(0, 10);
     const r = await rosters(weekNo, Number(now.slice(0, 4)), today);
     week ??= r.week;
-    if (!r.rosterAt) { status('這週沒有對手（輪空或季後賽已結束）。休賽季請切到「重播 2026」。', 'warn'); return clear(); }
+    if (!r.rosterAt) { status('這週沒有對手（輪空，或季後賽已經結束）。', 'warn'); return clear(); }
     if (!week?.start || now > week.end || now < week.start) {
-      status('現在不在比賽週內（休賽季）。請切到「重播 2026」看看實際運作。', 'warn');
+      status('休賽季中，沒有比賽。開季後這裡會顯示這週 18 類誰贏誰輸、今天誰有比賽。', 'warn');
       return clear();
     }
     status('讀取逐日陣容與 MLB 數據…');
@@ -224,9 +224,7 @@ export function initLive({ getBoard, weeklyUrl }) {
       $('#lv-week').innerHTML = st.weekly.weeks.map((w, i) => `<option value="${i + 1}">第 ${i + 1} 週 ${w.start.slice(5).replace('-', '/')}</option>`).join('');
       $('#lv-week').value = String(st.week);
     } catch { $('#lv-mode [data-mode=replay]').disabled = true; }
-    // 休賽季直接進重播
-    const m = new Date().getMonth();
-    setMode(m >= 10 || m <= 1 ? 'replay' : 'live');
+    setMode('live'); // 只看本週（重播 2026 已拿掉）
   };
   $('#lv-mode').addEventListener('click', (e) => { const m = e.target.closest('button')?.dataset.mode; if (m) setMode(m); });
   $('#lv-week').addEventListener('change', (e) => { st.week = Number(e.target.value); st.day = null; stopPlay(); renderDays(); refresh(); });

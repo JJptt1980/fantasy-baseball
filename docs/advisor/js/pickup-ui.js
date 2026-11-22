@@ -125,7 +125,7 @@ async function changeWeek(week) {
 function handleError(e) {
   console.error(e);
   if (e instanceof Y.LoginNeeded) {
-    $('#pk-who').textContent = '尚未登入 Yahoo';
+    $('#pk-who').textContent = '尚未登入';
     $('#pk-login').textContent = '登入 Yahoo';
     status('請按「登入 Yahoo」。登入一次之後 App 會記住。', 'error');
   } else {
@@ -333,7 +333,7 @@ export function initPickup() {
       Y.logout();
       st.loaded = false;
       st.result = null;
-      $('#pk-who').textContent = '已登出 Yahoo';
+      $('#pk-who').textContent = '尚未登入';
       $('#pk-login').textContent = '登入 Yahoo';
       $('#pk-summary').hidden = true;
       renderList();

@@ -330,11 +330,9 @@ function renderToday() {
       <div class="acts"><button type="button" class="btn primary" data-goto="draft" data-open="ds-box">選秀即時同步</button><button type="button" class="btn" data-goto="draft">選秀表</button></div></div>`);
   } else {
     const y = m >= 10 ? new Date().getFullYear() + 1 : new Date().getFullYear();
-    cards.push(`<div class="today-card"><div class="k">休賽季</div><div class="hero">${y} 選秀</div><div class="muted small">大約 3 月下旬選秀｜現在可以先看選秀表、玩模擬</div>
+    cards.push(`<div class="today-card"><div class="k">休賽季中</div><div class="hero">${y} 選秀</div><div class="muted small">大約 3 月下旬選秀｜現在可以先看選秀表、玩模擬</div>
       ${next.length ? `<div class="sumline" style="margin-top:8px">選秀表前 3 名：${next.map((p) => `<b>${esc(p.name)}</b>`).join('、')}</div>` : ''}
       <div class="acts"><button type="button" class="btn primary" data-goto="draft">看選秀表</button><button type="button" class="btn" data-goto="demo">模擬 ${y}</button></div></div>`);
-    cards.push(`<div class="today-card"><div class="k">練習</div><div class="sumline">重看去年任何一週的比賽，或練習選秀那天怎麼用</div>
-      <div class="acts"><button type="button" class="btn" data-goto="live">重播 ${y - 1}</button><button type="button" class="btn" data-goto="draft" data-open="ds-box">練習同步</button></div></div>`);
   }
   $('#today').innerHTML = cards.join('');
 }
@@ -430,8 +428,7 @@ initDemo({ getBoard: () => state.ranked, getConfig: () => buildConfig(state.sele
 showTab(lsGet(LS.tab, 'today'));
 // 內建資料包：手機裡還沒有的資料（對手 10 年習慣、聯盟順位）直接補上，不用等 Yahoo 慢慢讀
 PACK.seedBundled().then((done) => { if (done.includes('demo.profiles')) reloadProfiles(); });
-// 下拉更新：今天＝重讀 MLB 數據；撿人＝重抓 Yahoo；即時＝重算比分
-pullToRefresh($('#tab-today'), async () => { await load(); });
+// 下拉更新：撿人＝重抓 Yahoo 陣容與自由球員；即時＝重抓今天比分（今天頁的資料一天才抓一次，不用下拉）
 pullToRefresh($('#tab-pickup'), () => pickup?.refresh?.());
 pullToRefresh($('#tab-live'), () => live?.refresh?.());
 load();

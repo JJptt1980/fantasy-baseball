@@ -85,7 +85,7 @@
       <h1 class="large-title">撿人</h1>
       <div class="card">
         <div class="acct">
-          <span id="pk-who" class="muted">尚未讀取 Yahoo</span>
+          <span id="pk-who" class="muted">讀取中…</span>
           <span class="acct-btns">
             <button type="button" id="pk-login" class="btn">登入 Yahoo</button>
             <button type="button" id="pk-refresh" class="btn">↻ 更新</button>
@@ -93,7 +93,7 @@
         </div>
         <div class="two">
           <label>聯盟<select id="pk-league"></select></label>
-          <label>對手（週次）<select id="pk-week"></select></label>
+          <label>這週對手（自動帶出）<select id="pk-week"></select></label>
         </div>
       </div>
 
@@ -123,7 +123,7 @@
     </section>
     <section id="tab-live" hidden>
       <h1 class="large-title">即時</h1>
-      <div class="seg" id="lv-mode">
+      <div class="seg" id="lv-mode" hidden>
         <button type="button" data-mode="live" class="on">即時（本週）</button>
         <button type="button" data-mode="replay">重播 2026</button>
       </div>
@@ -147,7 +147,6 @@
         <button type="button" class="li" data-goto="demo"><span class="li-ic">🎮</span><span class="li-t">Demo：模擬 2027 球季<small>手動玩或自動播放，對手照聯盟真人 10 年習慣</small></span><span class="chev">›</span></button>
         <button type="button" class="li" data-goto="draft" data-open="ds-box"><span class="li-ic">🔄</span><span class="li-t">選秀即時同步<small>選秀當天自動標記、推薦、震動提醒</small></span><span class="chev">›</span></button>
         <button type="button" class="li" id="open-sources"><span class="li-ic">🔑</span><span class="li-t">資料來源與金鑰<small>MLB 預測、Statcast、傷兵、Yahoo／ESPN／FantasyPros 順位</small></span><span class="chev">›</span></button>
-        <button type="button" class="li" data-goto="live"><span class="li-ic">⏪</span><span class="li-t">重播 2026 任一週<small>在「即時」頁切到重播</small></span><span class="chev">›</span></button>
       </div>
       <h3 class="list-h">關於</h3>
       <div class="list"><div class="li static"><span class="li-t">選秀大師<small>數據：MLB 官方公開資料；聯盟資料：你在 App 內登入的 Yahoo。外觀會跟著手機的深色／淺色模式。</small></span></div></div>
