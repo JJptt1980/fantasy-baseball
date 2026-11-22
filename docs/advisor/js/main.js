@@ -254,16 +254,7 @@ function bind() {
   $('#search').addEventListener('input', renderBoard);
   $('#filter-pos').addEventListener('change', renderBoard);
   $('#hide-taken').addEventListener('change', renderBoard);
-  $('#clear-marks').addEventListener('click', (e) => {
-    e.preventDefault();
-    const n = Object.keys(state.marks).length;
-    if (!n) { toast('沒有標記可以清除'); return; }
-    const saved = { ...state.marks };
-    state.marks = {};
-    saveMarks();
-    haptic('warn');
-    toast(`已清除 ${n} 個標記`, { undo: () => { state.marks = saved; saveMarks(); }, ms: 6000 });
-  });
+
 
   $('#board').addEventListener('click', (e) => {
     const row = e.target.closest('.row');

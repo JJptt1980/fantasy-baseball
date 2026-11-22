@@ -62,6 +62,9 @@ async function start() {
       st.league = await latestLeague();
       st.myTeam = st.league.teamName;
       st.source = yahooSource(st.league);
+      // 正式選秀：先清掉以前留下的我選／被選，之後照 Yahoo 的選秀結果重新標
+      const n = Object.keys(st.getMarks() ?? {}).length;
+      if (n) { st.setMarks({}); toast(`已清掉舊的我選／被選（${n} 個）`); }
     } else {
       const speed = Number($('#ds-speed').value);
       lsSet(LS.speed, speed);
@@ -79,6 +82,7 @@ async function start() {
       st.source = replaySource(picks, { secondsPerPick: speed });
       // 練習不能弄髒正式的選秀表：先存下原本的標記，停止時還原
       st.savedMarks = JSON.parse(JSON.stringify(st.getMarks()));
+      st.setMarks({}); // 練習從乾淨的選秀表開始
     }
     st.running = true;
     renderButtons();
