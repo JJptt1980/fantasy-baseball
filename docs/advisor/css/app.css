@@ -113,3 +113,21 @@ h3.first { margin-top: 0; }
 .pk .name { font-weight: 600; }
 .pk .pos { font-size: 12px; padding: 1px 6px; border-radius: 6px; background: var(--surface-2); margin-left: 6px; font-weight: 500; }
 .pk .line { font-size: 12px; color: var(--muted); font-variant-numeric: tabular-nums; margin-top: 2px; }
+
+/* ── Demo ── */
+.demo-btns { display: flex; gap: 8px; margin-top: 10px; flex-wrap: wrap; }
+.final { text-align: center; }
+.final .big { font-size: 26px; font-weight: 800; margin: 4px 0; }
+.final.champ { border-color: var(--warn); background: rgba(250, 204, 21, 0.08); }
+.tbl { width: 100%; border-collapse: collapse; font-size: 14px; font-variant-numeric: tabular-nums; }
+.tbl th, .tbl td { padding: 6px 4px; border-bottom: 1px solid var(--border); text-align: right; }
+.tbl th:nth-child(2), .tbl td:nth-child(2) { text-align: left; }
+.tbl tr.me td { color: var(--accent); font-weight: 700; }
+.tbl tr.cut td { border-bottom: 2px dashed var(--muted); }
+.wk { font-size: 14px; padding: 6px 0; border-bottom: 1px solid var(--border); }
+.wk .res { font-weight: 700; }
+.wk .res.win { color: var(--good); }
+.wk .res.loss { color: var(--bad); }
+.wk .res.tie { color: var(--warn); }
+.pickrow { font-size: 13px; color: var(--muted); }
+.opp-prof { font-size: 13px; padding: 4px 0; border-bottom: 1px solid var(--border); }

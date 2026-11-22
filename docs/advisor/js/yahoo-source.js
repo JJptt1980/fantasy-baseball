@@ -63,3 +63,8 @@ export async function freeAgents(league, pages = 4) {
   }
   return out;
 }
+
+// 選秀結果（指定球季；預設本聯盟這一季）
+export async function draftResults(league, path) {
+  return web.parseDraftResults(await getDoc(path ?? `/${league.key}/draftresults?drafttab=round`));
+}

@@ -129,11 +129,11 @@ export function typicalLine(idx) {
 }
 
 // 類別差距的「一個單位」：計數類別用一般球隊一週的 20%，比率類別用固定值
-function scale(cat, typical) {
+export function scale(cat, typical) {
   return { 'B:AVG': 0.015, 'B:OPS': 0.04, 'P:ERA': 0.9, 'P:WHIP': 0.13 }[cat] ?? Math.max(0.5, typical[cat] * 0.2);
 }
 // 我方贏多少（正 = 我贏）
-function margin(cat, mine, other) {
+export function margin(cat, mine, other) {
   const d = mine[cat] - other[cat];
   return LOWER.has(cat) ? -d : d;
 }

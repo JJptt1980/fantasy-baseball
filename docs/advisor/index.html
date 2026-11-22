@@ -16,6 +16,7 @@
     <nav class="tabs" role="tablist">
       <button type="button" class="tab active" data-tab="draft" role="tab">選秀</button>
       <button type="button" class="tab" data-tab="pickup" role="tab">撿人</button>
+      <button type="button" class="tab" data-tab="demo" role="tab">Demo</button>
     </nav>
   </header>
 
@@ -86,6 +87,33 @@
       <ol id="pk-list" class="board"></ol>
 
       <div class="card" id="pk-picked" hidden></div>
+    </section>
+    <section id="tab-demo" hidden>
+      <div class="card">
+        <h2>虛擬跑一次 2027</h2>
+        <p class="muted small">用你在「選秀」頁勾的方向，跟 11 個對手選秀 25 輪，打 23 週例行賽（每週自動照建議撿人）和季後賽。球員成績以 2026 實際數據為準，每次重跑結果都不同。</p>
+        <div class="two">
+          <label>你的選秀順位<select id="demo-slot"><option value="">隨機</option></select></label>
+          <label>播放速度<select id="demo-speed"><option value="900">慢</option><option value="450" selected>中</option><option value="120">快</option></select></label>
+        </div>
+        <div class="demo-btns">
+          <button type="button" id="demo-run" class="btn primary">▶ 開始</button>
+          <button type="button" id="demo-pause" class="btn" hidden>⏸ 暫停</button>
+          <button type="button" id="demo-skip" class="btn" hidden>⏭ 跳到結果</button>
+        </div>
+      </div>
+      <div class="card">
+        <h3 class="first">對手</h3>
+        <p class="muted small" id="demo-opp-desc">目前用一般電腦對手（照市場排名選）。</p>
+        <button type="button" id="demo-opp-load" class="btn">讀取聯盟對手的真實選秀習慣</button>
+        <div id="demo-opp-list"></div>
+      </div>
+      <div id="demo-status" class="status" hidden></div>
+      <div id="demo-final" class="card final" hidden></div>
+      <div id="demo-now" class="card" hidden></div>
+      <div id="demo-standings" class="card" hidden></div>
+      <details id="demo-draft" class="card" hidden><summary>選秀結果</summary><div id="demo-draft-body"></div></details>
+      <div id="demo-log" class="card" hidden></div>
     </section>
   </main>
 </body>

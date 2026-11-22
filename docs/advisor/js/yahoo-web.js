@@ -176,3 +176,26 @@ export function parsePlayerList(doc) {
     })
     .filter(Boolean);
 }
+
+// 選秀結果頁 /YYYY/b1/<league>/draftresults?drafttab=round → [{ round, pick, overall, name, team }]
+export function parseDraftResults(doc) {
+  const out = [];
+  let round = 0;
+  for (const t of doc.querySelectorAll('table')) {
+    const head = text(t.querySelector('tr'));
+    const m = head.match(/Round\s+(\d+)/i);
+    if (m) round = Number(m[1]);
+    for (const tr of t.querySelectorAll('tr')) {
+      const a = tr.querySelector('a.name');
+      if (!a) continue;
+      const pick = Number(text(tr.querySelector('td.first')).replace(/\D/g, '')) || 0;
+      out.push({
+        round, pick, name: text(a),
+        team: tr.querySelector('td.last')?.getAttribute('title') || text(tr.querySelector('td.last')),
+      });
+    }
+  }
+  const teams = new Set(out.filter((x) => x.round === 1).map((x) => x.team)).size || 12;
+  for (const x of out) x.overall = (x.round - 1) * teams + x.pick;
+  return out;
+}
