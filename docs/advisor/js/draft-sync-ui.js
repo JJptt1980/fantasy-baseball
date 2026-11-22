@@ -81,7 +81,6 @@ async function start() {
       }
       st.source = replaySource(picks, { secondsPerPick: speed });
       // 練習不能弄髒正式的選秀表：先存下原本的標記，停止時還原
-      st.savedMarks = JSON.parse(JSON.stringify(st.getMarks()));
       st.setMarks({}); // 練習從乾淨的選秀表開始
     }
     st.running = true;
@@ -96,8 +95,11 @@ async function start() {
 
 function stop() {
   clearTimeout(st.timer);
+  const was = st.running;
   st.running = false;
-  if (st.savedMarks) { st.setMarks(st.savedMarks); st.savedMarks = null; }
+  // 停止同步：選秀表恢復乾淨（劃記只在同步進行中有意義）
+  st.savedMarks = null;
+  if (was && Object.keys(st.getMarks?.() ?? {}).length) st.setMarks({});
   if ($('#ds-focus') && !$('#ds-focus').hidden) openFocus(false);
   // 停止後清掉舊的倒數與推薦，免得誤以為還在同步
   st.ctx = null;
@@ -293,7 +295,7 @@ function render() {
 
   panel.innerHTML = `${banner}
     ${s.done ? '' : '<button type="button" class="btn" id="ds-focus-open">⛶ 放大模式（只看最重要的）</button>'}
-    ${st.source?.kind === 'replay' ? '<div class="muted small">練習中：選秀表上的劃記是暫時的，按「停止」就會恢復原狀。</div>' : ''}
+    ${st.source?.kind === 'replay' ? '<div class="muted small">練習中：選秀表上被劃掉的人，按「停止」就會恢復。</div>' : ''}
     <div class="sumline muted small">第 ${curRound} 輪｜你第 ${s.slot ?? '?'} 個選｜你已經選了 ${s.mine.length} 人</div>
     <div class="sumline">${open.length ? `還缺：<b>${esc(missing)}</b>` : '上場位置都有人了'}${s.mine.length ? `<span class="muted small">｜${s.mine.map((p) => esc(p.name)).join('、')}</span>` : ''}</div>
     ${recHtml}${predHtml}${logHtml}

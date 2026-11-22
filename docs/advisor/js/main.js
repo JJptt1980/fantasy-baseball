@@ -9,7 +9,7 @@ import { initDemo, reloadProfiles } from './demo-ui.js';
 import * as PACK from './pack.js';
 import { initLive } from './live-ui.js';
 import { initDraftSync } from './draft-sync-ui.js';
-import { haptic, toast, swipeRows, pullToRefresh, skeleton, sheet, closeSheet } from './ui-kit.js';
+import { haptic, toast, pullToRefresh, skeleton, sheet, closeSheet } from './ui-kit.js';
 import { reasonOf, openPlayerCard, statLine as cardStatLine } from './player-card.js';
 
 const $ = (s) => document.querySelector(s);
@@ -28,7 +28,8 @@ const state = {
   season: null,
   selected: new Set(lsGet(LS.strat, [])),
   prefs: new Set(lsGet(LS.prefs, PREFS.map((p) => p.id))),
-  marks: lsGet(LS.marks, {}), // id → 'mine' | 'taken'
+  // 劃記只在「選秀即時同步」進行中使用（自動劃掉被選走的人）；以前手動標的一次清掉
+  marks: lsGet('marks.v2', false) ? lsGet(LS.marks, {}) : (lsSet(LS.marks, {}), lsSet('marks.v2', true), {}),
   ranked: [],
 };
 
@@ -90,14 +91,12 @@ function recompute() {
 function renderBoard() {
   const q = $('#search').value.trim().toLowerCase();
   const pos = $('#filter-pos').value;
-  const hide = $('#hide-taken').checked;
   const rows = [];
   let lastRound = 0;
   let shown = 0;
   for (const p of state.ranked) {
     if (shown >= 400) break;
     const mark = state.marks[p.id];
-    if (hide && mark) continue;
     if (q && !p.name.toLowerCase().includes(q)) continue;
     if (pos && !(pos === p.side || pos === p.pos)) continue;
     if (!q && !pos && p.round !== lastRound) {
@@ -111,34 +110,13 @@ function renderBoard() {
         <div class="name">${esc(p.name)}<span class="pos">${esc(p.pos)}</span></div>
         <div class="line">${esc(p.team)}・${p.age} 歲｜${esc(statLine(p))}</div>
         <div class="why1">${esc(reasonOf(p))}</div>${state.adp?.get(`${p.side}${p.id}`) ? `<div class="line">${esc(ADP.adpLine(state.adp.get(`${p.side}${p.id}`)))}</div>` : ''}
-      </div>
-      <div class="acts">
-        <button type="button" class="b-mine" data-act="mine" aria-label="我選了">我選</button>
-        <button type="button" class="b-taken" data-act="taken" aria-label="被選走">被選</button>
       </div></li>`);
   }
   $('#board').innerHTML = rows.join('') || '<li class="muted">沒有符合的球員</li>';
-  const mine = Object.values(state.marks).filter((m) => m === 'mine').length;
-  const taken = Object.values(state.marks).filter((m) => m === 'taken').length;
   const at = lastFetched(state.season);
   const atTxt = at ? `｜MLB 數據 ${new Date(at).toLocaleDateString('zh-TW', { month: 'numeric', day: 'numeric' })} 抓的（${state.season} 季已結束就不再抓；季中一天最多抓一次）` : '';
-  $('#board-meta').textContent = `我選了 ${mine} 人、被選走 ${taken} 人｜往右滑＝我選、往左滑＝被選、點一下看詳細｜「市」＝別人大概第幾個選他`;
+  $('#board-meta').textContent = '點一下球員看詳細｜「市」＝別人大概第幾個選他｜選秀那天用上面的「選秀即時同步」，被選走的人會自動劃掉';
   $('#board-src').textContent = `排名根據：${state.dataNote ?? `${state.season} 季成績`}｜「市」來源：${state.marketLabel ?? '自己估計'}${state.adpNote ? `｜${state.adpNote}` : ''}${atTxt}`;
-}
-
-// ── 標記（震動＋可復原） ──
-function saveMarks() { lsSet(LS.marks, state.marks); renderBoard(); }
-function setMark(id, act) {
-  const prev = state.marks[id];
-  if (prev === act) delete state.marks[id];
-  else state.marks[id] = act;
-  saveMarks();
-  haptic('mark');
-  const p = state.ranked.find((x) => String(x.id) === String(id));
-  const now = state.marks[id];
-  toast(`${p?.name ?? ''}：${now === 'mine' ? '我選了' : now === 'taken' ? '被選走' : '取消標記'}`, {
-    undo: () => { if (prev) state.marks[id] = prev; else delete state.marks[id]; saveMarks(); },
-  });
 }
 
 // ── 資料來源與金鑰（FantasyPros 金鑰只存在這支手機） ──
@@ -199,15 +177,10 @@ function openSources() {
 function openPlayer(id) {
   const p = state.ranked.find((x) => String(x.id) === String(id));
   if (!p) return;
-  const mark = state.marks[p.id];
   const av = state.adp?.get(`${p.side}${p.id}`);
   openPlayerCard(p, {
     season: state.season,
     extra: av ? `<div class="sumline">各家順位：${esc(ADP.adpLine(av))}</div>` : '',
-    actions: [
-      { label: mark === 'mine' ? '取消「我選」' : '我選了', primary: true, run: () => setMark(p.id, 'mine') },
-      { label: mark === 'taken' ? '取消「被選」' : '被選走', run: () => setMark(p.id, 'taken') },
-    ],
   });
 }
 
@@ -253,19 +226,12 @@ function bind() {
 
   $('#search').addEventListener('input', renderBoard);
   $('#filter-pos').addEventListener('change', renderBoard);
-  $('#hide-taken').addEventListener('change', renderBoard);
 
 
   $('#board').addEventListener('click', (e) => {
     const row = e.target.closest('.row');
     if (!row) return;
-    const btn = e.target.closest('button[data-act]');
-    if (btn) { setMark(row.dataset.id, btn.dataset.act); return; }
-    if (!row.dataset.justSwiped) openPlayer(row.dataset.id);
-  });
-  swipeRows($('#board'), '.row', {
-    right: (row) => setMark(row.dataset.id, 'mine'),
-    left: (row) => setMark(row.dataset.id, 'taken'),
+    openPlayer(row.dataset.id);
   });
 }
 
@@ -310,7 +276,7 @@ function watchTitle(tab) {
 function renderToday() {
   if (!state.players) { $('#today').innerHTML = '<div class="today-card sk-card"><i></i><b></b><b></b></div><div class="today-card sk-card"><i></i><b></b></div>'; return; }
   const m = new Date().getMonth() + 1;
-  const next = state.ranked.filter((p) => !state.marks[p.id]).slice(0, 3);
+  const next = state.ranked.slice(0, 3); // 選秀表真正的前 3 名（不看劃記）
   const strat = $('#strategy-summary')?.textContent.replace(/^：/, '') ?? '';
   const cards = [];
   if (m >= 4 && m <= 9) {
