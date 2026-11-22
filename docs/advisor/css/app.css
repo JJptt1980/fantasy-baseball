@@ -10,8 +10,8 @@
   --surface: #17131f;
   --surface-2: #231c31;
   --border: #2e2640;
-  --text: #ece9f3;
-  --muted: #a39bb5;
+  --text: #f6f4fa;
+  --muted: #cdc6dc;
   --accent: #6001D2;          /* 實心主按鈕 */
   --accent-strong: #7E1FFF;
   --accent-text: #b9a6ff;     /* 深色底上的紫色文字 */
@@ -39,8 +39,8 @@
     --surface: #ffffff;
     --surface-2: #efeaf7;
     --border: #e3dcef;
-    --text: #1d1530;
-    --muted: #6b6380;
+    --text: #140e22;
+    --muted: #4a4359;
     --accent-text: #6001D2;
     --accent-soft: rgba(96, 1, 210, 0.10);
     --good: #15803d;
@@ -485,3 +485,7 @@ details.card, .card, #mn-recs { scroll-margin-top: 64px; }
 /* 提示方框：綠色半透明底 */
 .toast { background: rgba(22, 163, 74, 0.72); color: #fff; }
 .toast-undo { color: #fff !important; font-weight: 800; text-decoration: underline; }
+/* 字太淡：內文稍微加粗（思源黑體、Inter 都是可變粗細） */
+body { font-weight: 450; }
+b, strong, h1, h2, h3, .name, .sh-name, .fc-name { font-weight: 700; }
+.muted, .small { font-weight: 450; }
