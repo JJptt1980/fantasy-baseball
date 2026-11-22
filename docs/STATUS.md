@@ -70,7 +70,8 @@
   FantasyPros API（2026-11-22）：使用者已申請、金鑰核准（Email 寄送）；更多 →「資料來源與金鑰」輸入，只存在手機 localStorage（fp.key），不進 git
     每天抓一次：/mlb/{季}/consensus-rankings?type=DRAFT（專家共識）與 type=ADP（綜合 ADP），共 2 次呼叫（免費版上限每天 50 次、回傳會截短）
     市場排名順序：Yahoo ADP → FantasyPros 綜合 ADP → ESPN ADP → FantasyPros 專家共識 → ESPN 排名；有「測試」按鈕顯示回傳幾人（確認免費版截到哪）
-    **待驗證**：使用者在手機輸入金鑰後實測；文件只有綜合 ADP，沒有分 Yahoo／ESPN 個別 ADP
+    金鑰已存進 V2126 App 與 Mac 鑰匙圈（fantasypros-api）。實測（2026-11-22）：**免費版每次只回傳前 10 名**（總共 1,605 人、38 位專家），按守位查也是各 10 人；
+    2027 排名還沒公布（回 0 人）。決定：先不付費，2027 年 2 月看 Yahoo／ESPN ADP 夠不夠再決定要不要升級（每月 8.99 美元起，升級後不用改程式）
 
 ## 已定案的決定
 - 聯盟：West Bay Star（ID 105537），12 隊、H2H 18 類別、6 隊季後賽（第 24–26 週）、每年重選
