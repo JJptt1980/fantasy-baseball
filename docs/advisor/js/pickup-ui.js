@@ -352,7 +352,7 @@ export function initPickup() {
   window.__onYahooLogin = () => loadAll();
 
   if (!Y.hasBridge()) {
-    status('撿人功能要在 Android App 裡使用（App 內登入 Yahoo 後自動抓陣容）。', 'error');
+    status('「球季中」要在 Android App 裡使用（App 內登入 Yahoo 後自動抓陣容）。', 'error');
     $('#pk-login').disabled = true;
     $('#pk-refresh').disabled = true;
     return { onShow() {} };

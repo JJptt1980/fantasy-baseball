@@ -112,7 +112,7 @@ async function refresh() {
   } catch (e) {
     console.error(e);
     haptic('error');
-    status(e instanceof Y.LoginNeeded ? '請先到「撿人」頁登入 Yahoo。' : (e.message || '讀取失敗'), 'error');
+    status(e instanceof Y.LoginNeeded ? '請先到「球季中」頁登入 Yahoo。' : (e.message || '讀取失敗'), 'error');
   } finally {
     st.busy = false;
   }

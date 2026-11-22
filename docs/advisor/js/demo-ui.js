@@ -56,7 +56,7 @@ async function loadProfiles(getBoard) {
     renderProfiles();
   } catch (e) {
     console.error(e);
-    status(e instanceof Y.LoginNeeded ? '請先到「撿人」頁登入 Yahoo，再回來按。' : e.message, 'error');
+    status(e instanceof Y.LoginNeeded ? '請先到「球季中」頁登入 Yahoo，再回來按。' : e.message, 'error');
   }
 }
 

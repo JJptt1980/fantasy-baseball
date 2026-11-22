@@ -89,7 +89,7 @@ async function start() {
     tick();
   } catch (e) {
     console.error(e);
-    status(e instanceof Y.LoginNeeded ? '請先到「撿人」頁登入 Yahoo。' : e.message, 'error');
+    status(e instanceof Y.LoginNeeded ? '請先到「球季中」頁登入 Yahoo。' : e.message, 'error');
   }
 }
 

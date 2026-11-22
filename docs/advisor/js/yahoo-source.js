@@ -30,7 +30,7 @@ function bridgeFetch(path) {
 }
 
 async function getDoc(path) {
-  if (!hasBridge()) throw new Error('撿人功能要在 Android App 裡使用（需要登入 Yahoo）');
+  if (!hasBridge()) throw new Error('「球季中」要在 Android App 裡使用（需要登入 Yahoo）');
   const res = await bridgeFetch(path);
   if (web.isLoginPage(res.url)) throw new LoginNeeded('請先登入 Yahoo');
   if (res.status >= 400) throw new Error(`Yahoo 回應錯誤（${res.status}）`);
