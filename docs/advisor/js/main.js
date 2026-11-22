@@ -76,6 +76,7 @@ function recompute() {
   if (!state.players) return;
   state.ranked = board(state.players, buildConfig(state.selected, state.prefs));
   renderBoard();
+  if (!$('#tab-today').hidden) renderToday();
 }
 
 function renderBoard() {
@@ -117,7 +118,15 @@ function renderBoard() {
 // ── 事件 ──
 
 function bind() {
-  document.querySelectorAll('.tab').forEach((b) => b.addEventListener('click', () => showTab(b.dataset.tab)));
+  document.querySelectorAll('.tb').forEach((b) => b.addEventListener('click', () => showTab(b.dataset.tab)));
+  // 卡片、列表裡的捷徑：data-goto（頁面）＋ data-open（順便展開哪個區塊）
+  document.addEventListener('click', (e) => {
+    const g = e.target.closest('[data-goto]');
+    if (!g) return;
+    showTab(g.dataset.goto);
+    if (g.dataset.open) { const el = document.getElementById(g.dataset.open); if (el) { el.open = true; el.scrollIntoView({ block: 'start' }); } }
+  });
+  $('#nav-back').addEventListener('click', () => showTab('more'));
 
   $('#strategy-box').addEventListener('change', (e) => {
     const t = e.target;
@@ -160,15 +169,54 @@ function bind() {
   });
 }
 
+const PAGES = ['today', 'draft', 'pickup', 'live', 'more', 'demo'];
 function showTab(tab) {
-  document.querySelectorAll('.tab').forEach((b) => b.classList.toggle('active', b.dataset.tab === tab));
-  $('#tab-draft').hidden = tab !== 'draft';
-  $('#tab-pickup').hidden = tab !== 'pickup';
-  $('#tab-demo').hidden = tab !== 'demo';
-  $('#tab-live').hidden = tab !== 'live';
+  if (!PAGES.includes(tab)) tab = 'today';
+  // Demo 是「更多」底下的子頁
+  const bar = tab === 'demo' ? 'more' : tab;
+  document.querySelectorAll('.tb').forEach((b) => b.classList.toggle('active', b.dataset.tab === bar));
+  for (const p of PAGES) $(`#tab-${p}`).hidden = p !== tab;
+  $('#nav-back').hidden = tab !== 'demo';
+  $('#mini-title').textContent = $(`#tab-${tab} .large-title`)?.textContent ?? '';
+  window.scrollTo(0, 0);
+  watchTitle(tab);
   if (tab === 'live') live?.onShow();
-  lsSet(LS.tab, tab);
   if (tab === 'pickup') pickup?.onShow();
+  if (tab === 'today') renderToday();
+  lsSet(LS.tab, tab);
+}
+
+// 大標題捲出畫面 → 頂列顯示小標題
+let titleObs = null;
+function watchTitle(tab) {
+  titleObs?.disconnect();
+  const t = $(`#tab-${tab} .large-title`);
+  if (!t || !('IntersectionObserver' in window)) return;
+  titleObs = new IntersectionObserver(([e]) => $('.topbar').classList.toggle('scrolled', !e.isIntersecting), { rootMargin: '-44px 0px 0px 0px' });
+  titleObs.observe(t);
+}
+
+// 今天：依季節顯示最重要的事
+function renderToday() {
+  const m = new Date().getMonth() + 1;
+  const next = state.ranked.filter((p) => !state.marks[p.id]).slice(0, 3);
+  const strat = $('#strategy-summary')?.textContent.replace(/^：/, '') ?? '';
+  const cards = [];
+  if (m >= 4 && m <= 9) {
+    cards.push(`<div class="today-card"><div class="k">本週對戰</div><div class="hero">即時比分</div><div class="muted small">18 類誰領先、今天誰在打、週末預估</div>
+      <div class="acts"><button type="button" class="btn primary" data-goto="live">看本週對戰</button><button type="button" class="btn" data-goto="pickup">撿人建議</button></div></div>`);
+  } else if (m >= 2 && m <= 3) {
+    cards.push(`<div class="today-card"><div class="k">選秀季</div><div class="hero">準備選秀</div><div class="muted small">選秀當天打開「選秀即時同步」，App 會自動標記並在快輪到你時震動提醒</div>
+      <div class="acts"><button type="button" class="btn primary" data-goto="draft" data-open="ds-box">選秀即時同步</button><button type="button" class="btn" data-goto="draft">選秀表</button></div></div>`);
+  } else {
+    const y = m >= 10 ? new Date().getFullYear() + 1 : new Date().getFullYear();
+    cards.push(`<div class="today-card"><div class="k">休賽季</div><div class="hero">${y} 選秀</div><div class="muted small">大約 3 月下旬｜選秀方向：${esc(strat || '均衡＋輕度偏好')}</div>
+      ${next.length ? `<div class="sumline" style="margin-top:8px">選秀表前 3 名：${next.map((p) => `<b>${esc(p.name)}</b>`).join('、')}</div>` : ''}
+      <div class="acts"><button type="button" class="btn primary" data-goto="draft">看選秀表</button><button type="button" class="btn" data-goto="demo">練習：手動玩 ${y}</button></div></div>`);
+    cards.push(`<div class="today-card"><div class="k">複習</div><div class="sumline">重播 ${y - 1} 任一週的即時對戰，或練習選秀同步</div>
+      <div class="acts"><button type="button" class="btn" data-goto="live">重播 ${y - 1}</button><button type="button" class="btn" data-goto="draft" data-open="ds-box">練習選秀同步</button></div></div>`);
+  }
+  $('#today').innerHTML = cards.join('');
 }
 
 async function load() {
@@ -203,5 +251,5 @@ initDraftSync({
 });
 live = initLive({ getBoard: () => state.ranked, weeklyUrl: `data/weekly-${lastSeason()}.json` });
 initDemo({ getBoard: () => state.ranked, getConfig: () => buildConfig(state.selected, state.prefs), getSeason: () => state.season, getSelection: () => ({ selected: [...state.selected], prefs: [...state.prefs] }) });
-showTab(lsGet(LS.tab, 'draft'));
+showTab(lsGet(LS.tab, 'today'));
 load();

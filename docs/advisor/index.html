@@ -13,17 +13,25 @@
 </head>
 <body>
   <header class="topbar">
-    <h1>⚾<span class="t"> 選秀大師</span></h1>
-    <nav class="tabs" role="tablist">
-      <button type="button" class="tab active" data-tab="draft" role="tab">選秀</button>
-      <button type="button" class="tab" data-tab="pickup" role="tab">撿人</button>
-      <button type="button" class="tab" data-tab="live" role="tab">即時</button>
-      <button type="button" class="tab" data-tab="demo" role="tab">Demo</button>
-    </nav>
+    <button type="button" class="back" id="nav-back" hidden>‹ 更多</button>
+    <span class="mini-title" id="mini-title"></span>
   </header>
+  <nav class="tabbar" role="tablist">
+    <button type="button" class="tb active" data-tab="today"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v2M12 19v2M4.2 4.2l1.4 1.4M18.4 18.4l1.4 1.4M3 12h2M19 12h2M4.2 19.8l1.4-1.4M18.4 5.6l1.4-1.4"/><circle cx="12" cy="12" r="4"/></svg><span>今天</span></button>
+    <button type="button" class="tb" data-tab="draft"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="5" y="3" width="14" height="18" rx="2"/><path d="M9 8h6M9 12h6M9 16h4"/></svg><span>選秀</span></button>
+    <button type="button" class="tb" data-tab="pickup"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="10" cy="8" r="3.5"/><path d="M3.5 20c.8-3.6 3.4-5.5 6.5-5.5s5.7 1.9 6.5 5.5M18 8v6M15 11h6"/></svg><span>撿人</span></button>
+    <button type="button" class="tb" data-tab="live"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M13 2 4 14h7l-1 8 9-12h-7z"/></svg><span>即時</span></button>
+    <button type="button" class="tb" data-tab="more"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="5" cy="12" r="1.6"/><circle cx="12" cy="12" r="1.6"/><circle cx="19" cy="12" r="1.6"/></svg><span>更多</span></button>
+  </nav>
 
   <main>
-    <section id="tab-draft">
+    <section id="tab-today">
+      <div class="lt-row"><img src="../icons/icon-192.png" alt="" class="lt-logo"><h1 class="large-title">今天</h1></div>
+      <div id="today"></div>
+    </section>
+
+    <section id="tab-draft" hidden>
+      <h1 class="large-title">選秀</h1>
       <details class="card" id="ds-box">
         <summary>🔄 選秀即時同步 <span class="muted small" id="ds-meta"></span></summary>
         <p class="muted small">選秀進行中，App 定時讀 Yahoo 的選秀結果：被選走的自動標「被選」、你選的標「我選」，快輪到你時列出前 3 推薦並震動提醒。休賽季可以用「練習」重播最近一年的真實選秀。</p>
@@ -69,6 +77,7 @@
     </section>
 
     <section id="tab-pickup" hidden>
+      <h1 class="large-title">撿人</h1>
       <div class="card">
         <div class="acct">
           <span id="pk-who" class="muted">尚未讀取 Yahoo</span>
@@ -108,6 +117,7 @@
       <div class="card" id="pk-picked" hidden></div>
     </section>
     <section id="tab-live" hidden>
+      <h1 class="large-title">即時</h1>
       <div class="seg" id="lv-mode">
         <button type="button" data-mode="live" class="on">即時（本週）</button>
         <button type="button" data-mode="replay">重播 2026</button>
@@ -126,7 +136,19 @@
       <div class="card" id="lv-players" hidden></div>
     </section>
 
+    <section id="tab-more" hidden>
+      <h1 class="large-title">更多</h1>
+      <div class="list">
+        <button type="button" class="li" data-goto="demo"><span class="li-ic">🎮</span><span class="li-t">Demo：模擬 2027 球季<small>手動玩或自動播放，對手照聯盟真人 10 年習慣</small></span><span class="chev">›</span></button>
+        <button type="button" class="li" data-goto="draft" data-open="ds-box"><span class="li-ic">🔄</span><span class="li-t">選秀即時同步<small>選秀當天自動標記、推薦、震動提醒</small></span><span class="chev">›</span></button>
+        <button type="button" class="li" data-goto="live"><span class="li-ic">⏪</span><span class="li-t">重播 2026 任一週<small>在「即時」頁切到重播</small></span><span class="chev">›</span></button>
+      </div>
+      <h3 class="list-h">關於</h3>
+      <div class="list"><div class="li static"><span class="li-t">選秀大師<small>數據：MLB 官方公開資料；聯盟資料：你在 App 內登入的 Yahoo。外觀會跟著手機的深色／淺色模式。</small></span></div></div>
+    </section>
+
     <section id="tab-demo" hidden>
+      <h1 class="large-title">Demo</h1>
       <div class="seg" id="demo-mode">
         <button type="button" data-mode="manual" class="on">手動玩</button>
         <button type="button" data-mode="auto">自動播放</button>
