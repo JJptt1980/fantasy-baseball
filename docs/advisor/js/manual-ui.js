@@ -5,6 +5,8 @@ import { seasonStats, toMaps } from './mlb.js';
 import { buildPlayers, board as rankBoard, blendMaps } from './rank.js';
 import { buildConfig } from './strategies.js';
 import { CAT_LABEL } from './pickup.js';
+import { haptic, toast, miniBars } from './ui-kit.js';
+import { reasonOf, openPlayerCard, NICE } from './player-card.js';
 
 const $ = (s) => document.querySelector(s);
 const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
@@ -85,6 +87,35 @@ async function continueGame() {
   } catch (e) { console.error(e); status(`讀檔失敗：${e.message}`, 'error'); }
 }
 
+// 選秀：選完捲到推薦、震動、6 秒內可復原（用存檔重播回到選之前）
+function draftWithUndo(fn, name) {
+  const g = st.g;
+  const before = JSON.parse(JSON.stringify(g.serialize()));
+  const seenBefore = st.lastSeen;
+  const wasDraft = g.phase === 'draft';
+  try {
+    st.lastSeen = g.draftLog.length + 1;
+    fn();
+    st.q = '';
+    if (wasDraft && g.phase !== 'draft') st.showReport = true;
+    save();
+    render();
+  } catch (e) { console.error(e); status(e.message, 'error'); return; }
+  haptic('mark');
+  const target = g.phase === 'draft' ? $('#mn-recs') : null;
+  if (target) target.scrollIntoView({ block: 'start' }); else window.scrollTo(0, 0);
+  toast(name ? `選了 ${name}` : '剩下照建議選完', {
+    undo: () => {
+      st.g = restoreGame(boardFor(st.sel), before, { profiles: st.getProfiles(), weekly: st.prep.weekly });
+      st.lastSeen = seenBefore;
+      st.showReport = false;
+      save();
+      render();
+      $('#mn-recs')?.scrollIntoView({ block: 'start' });
+    },
+  });
+}
+
 function act(fn) {
   try { fn(); save(); render(); } catch (e) { console.error(e); status(e.message, 'error'); }
 }
@@ -131,33 +162,80 @@ function rosterSummary(team) {
 }
 
 // ── 選秀畫面 ──
+const recSentence = (p) => {
+  const r = (p.recReasons ?? []).filter((x) => !/^選秀表第/.test(x));
+  return r.length ? r.join('、') : reasonOf(p);
+};
+const nextTag = (p) => (p.staysNext == null ? '' : p.staysNext
+  ? '<span class="tag">下輪多半還在</span>'
+  : '<span class="tag warn">下輪前會被選走</span>');
+
 function renderDraft() {
   const g = st.g;
   const tu = g.turn();
   const opt = g.draftOptions();
   const since = g.draftLog.slice(st.lastSeen).filter((x) => x.team !== g.mySlot);
-  const stolen = since.filter((x) => st.lastRec?.includes(x.player.id));
-  st.lastRec = opt.recommended.map((p) => p.id);
+  // 只在「上次第 1 推薦（你沒選他）被別人選走」時提一句
+  const lostTop = st.lastTop != null ? since.find((x) => x.player.id === st.lastTop) : null;
+  st.lastTop = opt.recommended[0]?.id ?? null;
   const mine = g.teams[g.mySlot];
-  const all = opt.all.filter((p) => (!st.q || p.name.toLowerCase().includes(st.q.toLowerCase())) && (!st.pos || st.pos === p.side || st.pos === p.pos)).slice(0, 60);
-  const row = (p, primary = false) => `<div class="mn-row"><div><b>${esc(p.name)}</b> <span class="pos">${esc(p.pos)}</span> <span class="muted small">選秀表第 ${p.rank}｜市 ${p.marketRank}</span>
-      <div class="sub">${esc(pLine(p))}</div>${p.notes?.length ? `<div class="note">${esc(p.notes.join('、'))}</div>` : ''}</div>
-      <button type="button" class="btn ${primary ? 'primary' : ''}" data-pick="${p.id}">選他</button></div>`;
+  const recIds = new Set(opt.recommended.map((p) => p.id));
+  const all = opt.all.filter((p) => !recIds.has(p.id) && (!st.q || p.name.toLowerCase().includes(st.q.toLowerCase())) && (!st.pos || st.pos === p.side || st.pos === p.pos)).slice(0, 60);
+  const openCnt = opt.open.reduce((m, x) => ((m[x] = (m[x] ?? 0) + 1), m), {});
+  const openTxt = Object.entries(openCnt).map(([k, n]) => (n > 1 ? `${k}×${n}` : k)).join('、');
+  const recRow = (p, i) => `<div class="mn-row" data-card="${p.id}"><div><b>${i + 1}. ${esc(p.name)}</b> <span class="pos">${esc(p.pos)}</span> ${nextTag(p)}
+      <div class="why1">${esc(recSentence(p))}</div><div class="sub muted">選秀表第 ${p.rank}｜市 ${p.marketRank}｜${esc(pLine(p))}</div></div>
+      <button type="button" class="btn ${i === 0 ? 'primary' : ''}" data-pick="${p.id}">選他</button></div>`;
+  const row = (p) => `<div class="mn-row" data-card="${p.id}"><div><b>${esc(p.name)}</b> <span class="pos">${esc(p.pos)}</span> <span class="muted small">選秀表第 ${p.rank}｜市 ${p.marketRank}</span>
+      <div class="sub">${esc(pLine(p))}</div></div>
+      <button type="button" class="btn" data-pick="${p.id}">選他</button></div>`;
   $('#mn-body').innerHTML = `
-    <div class="card"><h3 class="first">選秀｜第 ${tu.round} 輪・總第 ${tu.overall} 位，輪到你（第 ${g.mySlot + 1} 順位）</h3>
-      ${stolen.length ? `<div class="sumline">😣 你想要但被搶走：${stolen.map((x) => `<b>${esc(x.player.name)}</b>（${esc(g.names[x.team])}）`).join('、')}</div>` : ''}
+    <div class="card"><h3 class="first">第 ${tu.round} 輪・總第 ${tu.overall} 位，輪到你</h3>
+      <div class="sumline muted small">${opt.next ? `下一次：第 ${Math.ceil(opt.next / TEAMS)} 輪總第 ${opt.next} 位（中間還有 ${opt.between} 人）` : '這是你最後一次選'}｜你是第 ${g.mySlot + 1} 順位</div>
+      ${lostTop ? `<div class="sumline muted small">上次的第 1 推薦 ${esc(lostTop.player.name)} 被 ${esc(g.names[lostTop.team])} 選走了</div>` : ''}
       ${since.length ? `<details class="sub muted small"><summary>其他隊這段時間選了 ${since.length} 人</summary>${since.map((x) => `${esc(g.names[x.team])} 選 ${esc(x.player.name)}`).join('、')}</details>` : ''}
       <h3>你的陣容（${mine.length}/${ROUNDS}）</h3>${rosterSummary(mine)}
-      ${mine.length ? `<div class="sub muted small" style="margin-top:6px">${mine.map((p) => esc(p.name)).join('、')}</div>` : ''}
+      ${mine.length ? `<details class="sub muted small"><summary>已選 ${mine.length} 人</summary>${mine.map((p) => esc(p.name)).join('、')}</details>` : ''}
     </div>
-    <div class="card"><h3 class="first">App 推薦</h3>${opt.recommended.map((p, i) => row(p, i === 0)).join('')}
-      <div class="mn-actions"><button type="button" class="btn primary" data-act="draft-auto1">照建議選第 1 推薦</button><button type="button" class="btn" data-act="draft-rest">剩下全照建議選完</button></div>
+    ${opt.forced ? `<div class="ds-banner warn">剩 ${opt.left} 輪、還缺 ${opt.open.length} 個先發格子（${esc(openTxt)}）：接下來只能選補得上這些格子的人，所以推薦的排名會比較後面。</div>` : ''}
+    <div class="card" id="mn-recs"><h3 class="first">App 推薦 <span class="muted small">點球員看詳情</span></h3>${opt.recommended.map(recRow).join('')}
+      <div class="mn-actions"><button type="button" class="btn" data-act="draft-rest">剩下全照建議選完</button></div>
     </div>
-    <div class="card"><h3 class="first">全部可選球員</h3>
+    <div class="card"><h3 class="first">其他可選球員</h3>
       <div class="toolbar"><input id="mn-q" type="search" placeholder="搜尋球員" value="${esc(st.q)}">
         <select id="mn-pos">${['', 'B', 'P', 'C', '1B', '2B', '3B', 'SS', 'OF', 'DH', 'SP', 'RP'].map((v) => `<option value="${v}" ${st.pos === v ? 'selected' : ''}>${v === '' ? '全部' : v === 'B' ? '打者' : v === 'P' ? '投手' : v}</option>`).join('')}</select></div>
-      ${all.map((p) => row(p)).join('') || '<p class="muted">沒有符合的球員</p>'}
+      ${all.map(row).join('') || '<p class="muted">沒有符合的球員</p>'}
     </div>`;
+}
+
+// ── 選秀成績單：跟同一場選秀全照 App 推薦比、在 12 隊裡排第幾 ──
+function teamStrength(team) {
+  return ['B', 'P'].reduce((a, side) => a + assign(team, side).filled.filter(Boolean).reduce((x, p) => x + Math.max(0, p.value ?? 0), 0), 0);
+}
+function draftReport(g) {
+  const strengths = g.teams.map(teamStrength);
+  const mineS = strengths[g.mySlot];
+  const rank = strengths.filter((x) => x > mineS).length + 1;
+  // 同一個亂數、同一個順位，全照 App 推薦選一次（只跑選秀，很快）
+  let appS = null;
+  try {
+    const alt = createGame(boardFor(st.sel), { mySlot: g.mySlot, profiles: st.getProfiles(), seed: g.seed, weekly: null, draftOnly: true });
+    alt.autoDraftRest();
+    appS = teamStrength(alt.teams[g.mySlot]);
+  } catch (e) { console.error(e); }
+  // 各類別：我的先發 z 加總在 12 隊排第幾
+  const cats = Object.keys(NICE);
+  const catRows = cats.map((c) => {
+    const sums = g.teams.map((t) => ['B', 'P'].flatMap((s) => assign(t, s).filled.filter(Boolean)).reduce((a, p) => a + (p.z?.[c] ?? 0), 0));
+    const r = sums.filter((x) => x > sums[g.mySlot]).length + 1;
+    return { label: NICE[c], pct: (TEAMS - r + 1) / TEAMS, text: `第 ${r} 強`, cls: r <= 3 ? 'good' : r >= 10 ? 'bad' : '' };
+  });
+  const diff = appS != null ? Math.round(((mineS - appS) / appS) * 100) : null;
+  return `<div class="card report"><h3 class="first">選秀成績單</h3>
+    <div class="kpis"><div><b>${rank}</b><span>12 隊實力排名</span></div><div><b>${Math.round(mineS)}</b><span>先發實力分</span></div><div><b>${diff == null ? '-' : `${diff > 0 ? '+' : ''}${diff}%`}</b><span>比全照 App 選</span></div></div>
+    <p class="why1 lead">${rank <= 3 ? '紙上實力前段班，' : rank >= 9 ? '紙上實力偏弱，季中要靠撿人補，' : '紙上實力中段，'}${diff == null ? '' : diff >= 0 ? '你的選擇不輸 App 推薦。' : `比全照 App 推薦少 ${-diff}%。`}</p>
+    <h3>各類別在 12 隊排第幾</h3>${miniBars(catRows)}
+    <div class="mn-actions"><button type="button" class="btn primary" data-act="report-ok">開始第 1 週</button></div></div>`;
 }
 
 // ── 每週畫面 ──
@@ -272,6 +350,7 @@ function render() {
   if (!st.g) { $('#mn-body').innerHTML = ''; updateContinue(); return; }
   if (st.g.phase === 'draft') renderDraft();
   else if (st.g.phase === 'done') renderDone();
+  else if (st.showReport) $('#mn-body').innerHTML = draftReport(st.g);
   else renderWeek();
 }
 
@@ -283,10 +362,18 @@ export function initManual({ getSelection, getSeason, getProfiles }) {
   const body = $('#mn-body');
   body.addEventListener('click', (e) => {
     const b = e.target.closest('button');
+    // 點球員那一列（不是按鈕）→ 詳情卡
+    const card = !b && e.target.closest('[data-card]');
+    if (card && st.g?.phase === 'draft') {
+      const id = Number(card.dataset.card);
+      const p = st.g.draftOptions().recommended.find((x) => x.id === id) ?? st.g.avail.get(id);
+      if (p) openPlayerCard(p, { season: st.prep.season - 1, lead: p.recReasons ? recSentence(p) : undefined, actions: [{ label: '選他', primary: true, run: () => draftWithUndo(() => st.g.draftPick(id), p.name) }] });
+      return;
+    }
     if (!b) return;
     const g = st.g;
     const top = () => window.scrollTo(0, 0);
-    if (b.dataset.pick) return act(() => { st.lastSeen = g.draftLog.length + 1; g.draftPick(Number(b.dataset.pick)); st.q = ''; top(); });
+    if (b.dataset.pick) return draftWithUndo(() => g.draftPick(Number(b.dataset.pick)), g.avail.get(Number(b.dataset.pick))?.name);
     if (b.dataset.move) { const [a, d] = b.dataset.move.split(':'); return act(() => g.move(Number(a), d ? Number(d) : null)); }
     if (b.dataset.manual) { const d = body.querySelector(`[data-dropfor="${b.dataset.manual}"]`).value; return act(() => g.move(Number(b.dataset.manual), d ? Number(d) : null)); }
     if (b.dataset.il) return act(() => g.toIL(Number(b.dataset.il)));
@@ -300,8 +387,8 @@ export function initManual({ getSelection, getSeason, getProfiles }) {
       return;
     }
     const a = b.dataset.act;
-    if (a === 'draft-auto1') return act(() => { st.lastSeen = g.draftLog.length + 1; g.draftPick(g.draftOptions().recommended[0].id); top(); });
-    if (a === 'draft-rest') return act(() => { g.autoDraftRest(); top(); });
+    if (a === 'draft-rest') return draftWithUndo(() => g.autoDraftRest(), null);
+    if (a === 'report-ok') { st.showReport = false; render(); return top(); }
     if (a === 'auto-moves') return act(() => { const n = g.autoMoves(); if (!n) setTimeout(() => status('目前沒有值得換的人。'), 0); });
     if (a === 'lu-reset') return act(() => g.resetLineup());
     if (a === 'play') return act(() => { st.openLineup = false; g.playWeek(); window.scrollTo(0, 0); });

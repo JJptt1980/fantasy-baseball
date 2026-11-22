@@ -5,12 +5,13 @@ import {
   rng, TEAMS, ROUNDS, REG_WEEKS, assign, fits, posGroup, bucketOf, makeWorld, lineupSlots, lineupW,
   weekStats, weekStatsReal, match, schedule, swap, aiMoves, newcomers, standings, pickupOptions, runSeason, holes, uniqueById,
 } from './demo-sim.js';
+import { recommend, predictAvailable, categoryNeeds } from './draft-sync.js';
 
 const BUDGET = 150;
 const IL_SLOTS = 2;
 const ROSTER = 25;
 
-export function createGame(players, { mySlot, profiles, seed, weekly }) {
+export function createGame(players, { mySlot, profiles, seed, weekly, draftOnly = false }) {
   players = uniqueById(players);
   const r = rng(seed);
   const g = {
@@ -64,17 +65,38 @@ export function createGame(players, { mySlot, profiles, seed, weekly }) {
   };
   const runAI = () => {
     while (g.pickIndex < TEAMS * ROUNDS && turn(g.pickIndex).team !== mySlot) aiPick(turn(g.pickIndex).team, turn(g.pickIndex).round);
-    if (g.pickIndex >= TEAMS * ROUNDS) startSeason();
+    if (g.pickIndex >= TEAMS * ROUNDS) { if (draftOnly) g.phase = 'drafted'; else startSeason(); }
   };
   g.turn = () => turn(g.pickIndex);
+  // 我的下一次順位（總第幾位，1 起算）；沒有了回 null
+  const nextMine = (from) => {
+    for (let i = from; i < TEAMS * ROUNDS; i++) if (turn(i).team === mySlot) return i + 1;
+    return null;
+  };
+  // 推薦：選秀表順序為底＋守位缺口＋類別平衡（跟選秀即時同步同一套）；
+  // 另外預測每位推薦到我下一次順位時還在不在（別人照市場排名選）
   g.draftOptions = () => {
     const { list, open } = cands(mySlot);
     const sorted = [...list].sort((a, b) => a.rank - b.rank);
-    return { recommended: sorted.slice(0, 5), all: sorted, open };
+    const mine = g.teams[mySlot];
+    const left = ROUNDS - mine.length;
+    const forced = left <= open.length;
+    const takenIds = new Set(players.filter((p) => !g.avail.has(p.id)).map((p) => p.id));
+    const next = nextMine(g.pickIndex + 1);
+    const between = next ? next - (g.pickIndex + 1) - 1 : null;
+    const pred = between != null ? predictAvailable({ board: sorted, takenIds: new Set(), k: between }) : null;
+    const stayIds = pred ? new Set(pred.stay.map((p) => p.id)) : null;
+    let recs = recommend({ board: players, takenIds, myPlayers: mine, myPicksLeft: left, n: 5 });
+    if (recs.length < 5) {
+      const have = new Set(recs.map((x) => x.p.id));
+      recs = recs.concat(sorted.filter((p) => !have.has(p.id)).slice(0, 5 - recs.length).map((p) => ({ p, reasons: [] })));
+    }
+    const recommended = recs.map((x) => ({ ...x.p, recReasons: x.reasons, fillSlot: x.fillSlot ?? null, staysNext: stayIds ? stayIds.has(x.p.id) : null }));
+    return { recommended, all: sorted, open, forced, left, next, between, needs: categoryNeeds(mine, players) };
   };
   g.draftPick = (id) => {
     if (g.phase !== 'draft') throw new Error('不在選秀階段');
-    const p = g.draftOptions().all.find((x) => x.id === id);
+    const p = cands(mySlot).list.find((x) => x.id === id);
     if (!p) throw new Error('這位球員不能選（已被選走或守位已滿）');
     g.actions.push(['pick', id]);
     take(mySlot, p);

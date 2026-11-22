@@ -5,7 +5,8 @@ import { initPickup } from './pickup-ui.js';
 import { initDemo } from './demo-ui.js';
 import { initLive } from './live-ui.js';
 import { initDraftSync } from './draft-sync-ui.js';
-import { haptic, toast, sheet, closeSheet, swipeRows, pullToRefresh, sparkline, miniBars, skeleton, zPct } from './ui-kit.js';
+import { haptic, toast, swipeRows, pullToRefresh, skeleton } from './ui-kit.js';
+import { reasonOf, openPlayerCard } from './player-card.js';
 
 const $ = (s) => document.querySelector(s);
 const LS = { strat: 'adv.strategies', prefs: 'adv.prefs', notes: 'adv.notes', marks: 'adv.marks', tab: 'adv.tab' };
@@ -46,22 +47,6 @@ function setStatus(msg, kind = '', retry = null) {
     b.onclick = retry;
     el.append(b);
   }
-}
-
-// ── 一句話理由：最強的 1~2 個類別＋加分／風險 ──
-const NICE = {
-  'B:R': '得分', 'B:H': '安打', 'B:HR': '全壘打', 'B:RBI': '打點', 'B:SB': '盜壘', 'B:BB': '保送', 'B:K': '少三振', 'B:AVG': '打擊率', 'B:OPS': 'OPS',
-  'P:W': '勝投', 'P:L': '少敗投', 'P:SV': '救援', 'P:BB': '少保送', 'P:K': '三振', 'P:HLD': '中繼', 'P:ERA': 'ERA', 'P:WHIP': 'WHIP', 'P:QS': '優質先發',
-};
-const topPct = (z) => Math.max(1, Math.round((1 - zPct(z)) * 100));
-function reasonOf(p) {
-  const top = Object.entries(p.z ?? {}).filter(([, z]) => z > 0.5).sort((a, b) => b[1] - a[1]).slice(0, 2);
-  let t = top.length ? top.map(([c, z]) => `${NICE[c]}前 ${topPct(z)}%`).join('、') : '各類別都在平均附近，沒有明顯強項';
-  const plus = p.notes.find((n) => /上升|進步/.test(n));
-  const risk = p.notes.find((n) => /不足|避開|偏大|保送/.test(n));
-  if (plus) t += `，${plus}`;
-  if (risk) t += `；注意：${risk}`;
-  return t;
 }
 
 // ── 選秀方向（打勾） ──
@@ -156,58 +141,16 @@ function setMark(id, act) {
 }
 
 // ── 球員詳情卡 ──
-let weeklyP = null;
-const weeklyData = () => (weeklyP ??= fetch(`data/weekly-${state.season}.json`).then((r) => (r.ok ? r.json() : null)).catch(() => null));
-function trendOf(p, wk) {
-  const rec = wk?.players?.[`${p.side}${p.id}`];
-  if (!rec) return null;
-  const col = (cols, name) => cols.indexOf(name);
-  if (p.side === 'B') {
-    const iO = col(wk.hitCols, 'OPSx1000');
-    const iP = col(wk.hitCols, 'PA');
-    return { label: '每週 OPS', vals: rec.w.map((w) => (Array.isArray(w) && w[iP] >= 8 ? w[iO] / 1000 : null)), fmt: (v) => v.toFixed(3).replace(/^0/, '') };
-  }
-  if (p.pos === 'SP') {
-    const iK = col(wk.pitCols, 'K');
-    return { label: '每週三振', vals: rec.w.map((w) => (Array.isArray(w) ? w[iK] : null)), fmt: (v) => String(v) };
-  }
-  const iS = col(wk.pitCols, 'SV');
-  const iH = col(wk.pitCols, 'HLD');
-  return { label: '每週 SV＋HLD', vals: rec.w.map((w) => (Array.isArray(w) ? w[iS] + w[iH] : null)), fmt: (v) => String(v) };
-}
 function openPlayer(id) {
   const p = state.ranked.find((x) => String(x.id) === String(id));
   if (!p) return;
-  haptic('tap');
   const mark = state.marks[p.id];
-  const bars = miniBars(Object.entries(p.z ?? {}).map(([c, z]) => {
-    const pct = zPct(z);
-    return { label: NICE[c], pct, text: `前 ${topPct(z)}%`, cls: pct >= 0.8 ? 'good' : pct <= 0.3 ? 'bad' : '' };
-  }));
-  const box = sheet(`
-    <div class="sh-head"><div><div class="sh-name">${esc(p.name)}<span class="pos">${esc(p.pos)}</span></div><div class="muted small">${esc(p.team)}・${p.age} 歲</div></div><button type="button" class="sh-x" data-close aria-label="關閉">✕</button></div>
-    <div class="kpis"><div><b>${p.rank}</b><span>選秀表</span></div><div><b>${p.round}</b><span>建議輪次</span></div><div><b>${p.marketRank}</b><span>市場排名</span></div></div>
-    <p class="why1 lead">${esc(reasonOf(p))}</p>
-    <h3>各類別在聯盟的位置（${state.season} 季）</h3>${bars}
-    <h3 id="sh-trend-t">${state.season} 逐週走勢</h3><div id="sh-trend" class="muted small">讀取中…</div>
-    <div class="line small muted" style="margin-top:10px">${esc(statLine(p))}</div>
-    ${p.notes.length ? `<div class="note">${esc(p.notes.join('、'))}</div>` : ''}
-    <div class="sh-acts"><button type="button" class="btn primary" data-sh="mine">${mark === 'mine' ? '取消「我選」' : '我選了'}</button><button type="button" class="btn" data-sh="taken">${mark === 'taken' ? '取消「被選」' : '被選走'}</button></div>`);
-  box.addEventListener('click', (e) => {
-    const a = e.target.closest('[data-sh]')?.dataset.sh;
-    if (a) { closeSheet(); setMark(p.id, a); }
-  });
-  weeklyData().then((wk) => {
-    const el = document.getElementById('sh-trend');
-    if (!el) return;
-    const t = trendOf(p, wk);
-    if (!t) { el.textContent = '沒有逐週資料'; return; }
-    const got = t.vals.filter((v) => v != null);
-    const recent = got.slice(-4);
-    const avg = (a) => a.reduce((x, y) => x + y, 0) / (a.length || 1);
-    document.getElementById('sh-trend-t').textContent = `${state.season} ${t.label}`;
-    el.className = 'trend';
-    el.innerHTML = `${sparkline(t.vals, { w: 240, h: 44, label: t.label })}<div class="muted small">全季平均 ${t.fmt(Math.round(avg(got) * 1000) / 1000)}｜最後 4 週 ${t.fmt(Math.round(avg(recent) * 1000) / 1000)}</div>`;
+  openPlayerCard(p, {
+    season: state.season,
+    actions: [
+      { label: mark === 'mine' ? '取消「我選」' : '我選了', primary: true, run: () => setMark(p.id, 'mine') },
+      { label: mark === 'taken' ? '取消「被選」' : '被選走', run: () => setMark(p.id, 'taken') },
+    ],
   });
 }
 

@@ -383,3 +383,7 @@ body.no-scroll { overflow: hidden; }
 #ds-focus-open { width: 100%; margin: 6px 0 10px; }
 .sheet .note { color: var(--warn); font-size: var(--fs-sub); margin-top: 4px; }
 body.kb .tabbar, body.kb .toast { display: none; }
+/* Demo 選秀：選完捲到推薦時不要被頂列蓋住 */
+#mn-recs { scroll-margin-top: 56px; }
+.mn-row[data-card] { cursor: pointer; }
+.mn-row .why1 { margin-top: 2px; }

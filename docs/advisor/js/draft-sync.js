@@ -92,10 +92,21 @@ export function recommend({ board, takenIds, myPlayers, picksUntil = 0, myPicksL
   const need = categoryNeeds(myPlayers, board);
   // 剩下的選擇數 ≤ 先發空格數 → 只能選補得上空格的人
   const mustFill = myPicksLeft != null && myPicksLeft <= open.length;
+  // 急迫度：剩下的選擇越接近空格數，補空格越重要（避免最後幾輪被迫撿剩的）
+  const urgency = myPicksLeft ? Math.max(0, open.length / myPicksLeft - 0.35) : 0;
+  // 每種格子還缺幾個 vs 選秀池裡還剩幾個像樣的人 → 越稀缺越先補
+  const scarce = {};
+  for (const sl of new Set(open)) {
+    const needN = open.filter((x) => x === sl).length;
+    const supply = avail.slice(0, 150).filter((p) => fits(p, sl)).length;
+    scarce[sl] = Math.min(2, (needN * 12) / Math.max(6, supply));
+  }
   const scored = avail.slice(0, 120).map((p) => {
-    const fillSlot = open.find((sl) => fits(p, sl));
+    const fills = open.filter((sl) => fits(p, sl));
+    const fillSlot = fills.sort((a, b) => (scarce[b] ?? 0) - (scarce[a] ?? 0))[0];
     const catBonus = Object.entries(p.z ?? {}).reduce((a, [c, z]) => a + Math.max(0, z) * (need[c] - 1), 0);
-    const score = (p.value ?? 0) + 0.8 * catBonus + (fillSlot ? 1.2 : -1.5);
+    const fillBonus = fillSlot ? 1.2 + 4 * urgency + (scarce[fillSlot] ?? 0) * (0.5 + 2 * urgency) : -1.5 - 4 * urgency;
+    const score = (p.value ?? 0) + 0.8 * catBonus + fillBonus;
     return { p, fillSlot, catBonus, score };
   }).filter((x) => !mustFill || x.fillSlot);
   scored.sort((a, b) => b.score - a.score);
