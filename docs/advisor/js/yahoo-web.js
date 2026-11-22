@@ -231,3 +231,20 @@ export function parseLeagueSlug(doc) {
 export function parseLeagueId(doc) {
   return text(doc.body).match(/\(ID# (\d+)\)/)?.[1] ?? null;
 }
+
+// 設定頁 → 換人上限、每週上限、季後賽週次、交易截止
+export function parseLeagueRules(doc) {
+  const kv = {};
+  for (const tr of doc.querySelectorAll('table tr')) {
+    const c = tr.cells;
+    if (c.length >= 2) kv[text(c[0]).replace(/:$/, '')] = text(c[1]);
+  }
+  const num = (v) => (/\d/.test(v ?? '') ? Number(String(v).replace(/[^\d]/g, '')) : null);
+  const weeks = (kv.Playoffs ?? '').match(/Week ([\d,\sand]+)/)?.[1]?.match(/\d+/g)?.map(Number) ?? [];
+  return {
+    maxSeason: num(kv['Max Acquisitions for Entire Season']),
+    maxWeek: num(kv['Max Acquisitions per Week']),
+    playoffWeeks: weeks,
+    tradeEnd: kv['Trade End Date'] ?? null,
+  };
+}

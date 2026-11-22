@@ -2,6 +2,7 @@
 import * as Y from './yahoo-source.js';
 import { rangeStats, toMaps } from './mlb.js';
 import { recommend, recentWindow, weeklyIndex, CAT_LABEL } from './pickup.js';
+import { moveBudget, budgetMessage } from './budget.js';
 
 const $ = (s) => document.querySelector(s);
 const LS = { league: 'pk.league', wants: 'pk.wants', picks: 'pk.picks', mode: 'pk.mode', side: 'pk.side' };
@@ -83,11 +84,16 @@ async function loadLeague(week) {
   const myId = lg.teamId ?? me?.key;
   st.myName = lg.teamName ?? me?.name ?? '我的隊';
   st.oppName = opp?.name ?? null;
-  const [myRoster, oppRoster, fa] = await Promise.all([
+  const [myRoster, oppRoster, fa, rules, teams] = await Promise.all([
     Y.roster(lg, myId),
     opp ? Y.roster(lg, opp.key) : Promise.resolve(null),
     Y.freeAgents(lg),
+    Y.rules(lg).catch(() => null),
+    Y.teams(lg).catch(() => []),
   ]);
+  const mine = teams.find((t) => String(t.teamId) === String(myId));
+  st.budget = rules && mine ? moveBudget({ cap: rules.maxSeason, used: mine.moves, week: mu.week, playoffWeeks: rules.playoffWeeks, weekCap: rules.maxWeek }) : null;
+  renderBudget();
   st.myRoster = myRoster;
   st.oppRoster = oppRoster;
   st.fa = fa;
@@ -181,11 +187,33 @@ function renderList() {
   }).join('') || '<li class="muted small">沒有符合的球員</li>';
 }
 
+function renderBudget() {
+  const b = st.budget;
+  const box = $('#pk-budget');
+  if (!b) { box.hidden = true; return; }
+  const pct = (n) => `${Math.min(100, (n / b.cap) * 100).toFixed(1)}%`;
+  box.hidden = false;
+  box.className = `card budget ${b.level}`;
+  box.innerHTML = `
+    <div class="b-head"><b>換人額度</b><span>今年已換 <b>${b.used}</b> / ${b.cap}｜季後賽保留 ${b.reserve}</span></div>
+    <div class="b-bar" role="img" aria-label="已用 ${b.used} 次，上限 ${b.cap} 次">
+      <i style="width:${pct(b.used)}"></i><s style="left:${pct(b.cap - b.reserve)}"></s>
+    </div>
+    <div class="b-msg">${esc(budgetMessage(b))}</div>`;
+}
+
+function picksWarning() {
+  const n = Object.values(st.picks).filter((v) => v.on).length;
+  const b = st.budget;
+  if (!b || !n || n <= b.thisWeek) return '';
+  return `<div class="sumline warn-text">你勾了 ${n} 人，超過這週建議的 ${b.thisWeek} 次。${b.phase === 'regular' ? `多換的會吃到季後賽保留額度。` : ''}</div>`;
+}
+
 function renderPicked() {
   const on = Object.entries(st.picks).filter(([, v]) => v.on);
   const box = $('#pk-picked');
   box.hidden = !on.length;
-  box.innerHTML = `<h3 class="first">已勾選要撿（${on.length}）</h3>` +
+  box.innerHTML = `<h3 class="first">已勾選要撿（${on.length}）</h3>` + picksWarning() +
     on.map(([, v]) => `<div class="sumline">✓ ${esc(v.name)}${v.note ? `<span class="muted">｜${esc(v.note)}</span>` : ''}</div>`).join('') +
     '<button type="button" class="btn" id="pk-clear">清除勾選</button>';
 }

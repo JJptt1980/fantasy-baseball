@@ -38,3 +38,24 @@ test('推薦：打者投手分開，說「救援」時終結者排前面', () =>
   assert.equal(r.lists.recent.P[0].p.name, 'Closer Guy');
   assert.equal(r.lists.opp, null);
 });
+
+import { moveBudget } from '../docs/advisor/js/budget.js';
+
+test('換人額度：保留季後賽、配額、警示', () => {
+  const po = [24, 25, 26];
+  const a = moveBudget({ cap: 150, used: 0, week: 1, playoffWeeks: po });
+  assert.equal(a.reserve, 25);
+  assert.equal(a.thisWeek, Math.floor(125 / 23));
+  assert.equal(a.level, 'ok');
+  // 2021 年你的情況：上限 100、第 20 週已用 90 → 動用到保留額度
+  const b = moveBudget({ cap: 100, used: 90, week: 20, playoffWeeks: [23, 24, 25] });
+  assert.equal(b.level, 'bad');
+  assert.equal(b.thisWeek, 0);
+  // 用得比進度快
+  const c = moveBudget({ cap: 150, used: 80, week: 10, playoffWeeks: po });
+  assert.equal(c.level, 'warn');
+  // 季後賽：剩下的平均分到剩餘週數
+  const d = moveBudget({ cap: 150, used: 125, week: 24, playoffWeeks: po });
+  assert.equal(d.phase, 'playoff');
+  assert.equal(d.thisWeek, 9);
+});

@@ -455,12 +455,12 @@ export function pickupOptions(teams, freeAgents, mySlot, world, w, { top = 15 } 
 }
 
 // 我方自動：照建議換人，有明顯提升才換（每週最多 2 次）
-export function pickupStep(teams, freeAgents, budget, mySlot, world, w) {
+export function pickupStep(teams, freeAgents, budget, mySlot, world, w, limit = 2) {
   const myTeam = teams[mySlot];
   const moves = [];
   let top = [];
   let weak = [];
-  for (let k = 0; k < 2 && budget - moves.length > 0; k++) {
+  for (let k = 0; k < limit && budget - moves.length > 0; k++) {
     const pk = pickupOptions(teams, freeAgents, mySlot, world, w);
     if (k === 0) { top = pk.options.slice(0, 3); weak = pk.weak; }
     const best = pk.options[0];
@@ -518,12 +518,18 @@ export function runSeason(players, { mySlot, profiles, seed, teamNames, weekly =
   const names = d.teams.map((_, i) => (i === mySlot ? '你' : d.ai[i]?.name ?? teamNames?.[i] ?? `電腦 ${i + 1}`));
   const events = [{ type: 'draft', log: d.log, names, ai: d.ai, mySlot, real: world.real, weeks: weekly?.weeks ?? null }];
   const rec = d.teams.map(() => ({ w: 0, l: 0, t: 0, mw: 0, ml: 0 }));
-  let budget = globalThis.__DEMO_BUDGET ?? 150;
+  const CAP = globalThis.__DEMO_BUDGET ?? 150;
+  const RESERVE = Math.min(25, Math.round(CAP * 0.25)); // 季後賽保留
+  let budget = CAP;
   let aiTotal = 0;
+  let poMoves = 0;
   const stats = (team, w) => (world.real ? weekStatsReal(lineupW(team, world, w), world, w) : weekStats(lineupW(team, world, w), r));
   for (const [i, wk] of schedule(r).entries()) {
     const week = i + 1;
-    const pk = pickupStep(d.teams, d.freeAgents, budget, mySlot, world, i);
+    // 例行賽：保留季後賽額度後，平均分到剩下的週數（每週最多 2 次）
+    const regLeft = Math.max(0, budget - RESERVE);
+    const limit = Math.min(2, Math.floor(regLeft / Math.max(1, 23 - i)) || (regLeft > 0 ? 1 : 0));
+    const pk = pickupStep(d.teams, d.freeAgents, budget, mySlot, world, i, limit);
     budget -= pk.moves.length;
     aiTotal += aiMoves(d.teams, d.freeAgents, d.ai, mySlot, world, i, r);
     const games = [];
@@ -546,13 +552,27 @@ export function runSeason(players, { mySlot, profiles, seed, teamNames, weekly =
     events.push({ type: 'playoff', week, label, a, b, ...m, winner });
     return winner;
   };
+  // 季後賽每週：還在比賽的我方用保留額度換人（每週最多 8 次），對手照習慣換
+  const poWeek = (week, alive) => {
+    if (alive.includes(mySlot) && budget > 0) {
+      const limit = Math.min(8, Math.ceil(budget / (27 - week)));
+      const pk = pickupStep(d.teams, d.freeAgents, budget, mySlot, world, week - 1, limit);
+      budget -= pk.moves.length;
+      poMoves += pk.moves.length;
+      if (pk.moves.length) events.push({ type: 'po-pickup', week, moves: pk.moves, left: budget });
+    }
+    aiTotal += aiMoves(d.teams, d.freeAgents, d.ai, mySlot, world, week - 1, r);
+  };
   const s = seeds;
+  poWeek(24, s.slice(0, 6));
   const q1 = play(s[2], s[5], 24, '八強');
   const q2 = play(s[3], s[4], 24, '八強');
+  poWeek(25, [s[0], s[1], q1, q2]);
   const f1 = play(s[0], q2, 25, '四強');
   const f2 = play(s[1], q1, 25, '四強');
+  poWeek(26, [f1, f2]);
   const champ = play(f1, f2, 26, '冠軍戰');
-  events.push({ type: 'end', champ, seeds, myRank: seeds.indexOf(mySlot) + 1, names, standings: standings(rec), moves: (globalThis.__DEMO_BUDGET ?? 150) - budget, aiMoves: aiTotal, real: world.real });
+  events.push({ type: 'end', champ, seeds, myRank: seeds.indexOf(mySlot) + 1, names, standings: standings(rec), moves: CAP - budget, poMoves, aiMoves: aiTotal, real: world.real });
   return { events, names, myTeam: d.teams[mySlot] };
 }
 

@@ -95,3 +95,11 @@ export async function leagueHistory(league, years = 10, onProgress = () => {}) {
   }
   return out;
 }
+
+export async function rules(league) {
+  return web.parseLeagueRules(await getDoc(`/${league.key}/settings`));
+}
+
+export async function teams(league) {
+  return web.parseTeams(await getDoc(`/${league.key}/teams`));
+}
