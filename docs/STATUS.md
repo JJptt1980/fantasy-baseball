@@ -67,7 +67,10 @@
   一天最多抓一次（聯盟歷史一週一次）。選秀表每列顯示「Yahoo 45｜ESPN 50｜聯盟去年第 38」，市場排名改用真實 ADP（Yahoo → ESPN ADP → ESPN 排名，至少對到 120 人才用）
   用 ESPN 2026 驗證：600 人對到 548 人，沒被市場排的中繼投手會掉回後面
   **待驗證**：ESPN 2027 目前 404（約 2 月公布）；Yahoo 選秀分析頁休賽季打不開，解析是照表頭找「Avg Pick」寫的，2027 年 2 月要在 App 實測；聯盟歷史已在 V2126 實測可用（例：Soto「聯盟去年第 7」）；橫向時搜尋列改成不固定
-  還沒做：FantasyPros API（等使用者申請金鑰：https://secure.fantasypros.com/api-keys/request/）
+  FantasyPros API（2026-11-22）：使用者已申請、金鑰核准（Email 寄送）；更多 →「資料來源與金鑰」輸入，只存在手機 localStorage（fp.key），不進 git
+    每天抓一次：/mlb/{季}/consensus-rankings?type=DRAFT（專家共識）與 type=ADP（綜合 ADP），共 2 次呼叫（免費版上限每天 50 次、回傳會截短）
+    市場排名順序：Yahoo ADP → FantasyPros 綜合 ADP → ESPN ADP → FantasyPros 專家共識 → ESPN 排名；有「測試」按鈕顯示回傳幾人（確認免費版截到哪）
+    **待驗證**：使用者在手機輸入金鑰後實測；文件只有綜合 ADP，沒有分 Yahoo／ESPN 個別 ADP
 
 ## 已定案的決定
 - 聯盟：West Bay Star（ID 105537），12 隊、H2H 18 類別、6 隊季後賽（第 24–26 週）、每年重選

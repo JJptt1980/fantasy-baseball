@@ -8,7 +8,7 @@ import { initPickup } from './pickup-ui.js';
 import { initDemo } from './demo-ui.js';
 import { initLive } from './live-ui.js';
 import { initDraftSync } from './draft-sync-ui.js';
-import { haptic, toast, swipeRows, pullToRefresh, skeleton } from './ui-kit.js';
+import { haptic, toast, swipeRows, pullToRefresh, skeleton, sheet } from './ui-kit.js';
 import { reasonOf, openPlayerCard, statLine as cardStatLine } from './player-card.js';
 
 const $ = (s) => document.querySelector(s);
@@ -139,6 +139,40 @@ function setMark(id, act) {
   });
 }
 
+// ── 資料來源與金鑰（FantasyPros 金鑰只存在這支手機） ──
+function openSources() {
+  haptic('tap');
+  const has = !!ADP.fpKey.get();
+  const box = sheet(`
+    <div class="sh-head"><div class="sh-name">資料來源與金鑰</div><button type="button" class="sh-x" data-close aria-label="關閉">✕</button></div>
+    <p class="muted small">全部一天最多抓一次，抓到的存在手機裡。</p>
+    <div class="sumline">• MLB 官方：成績、明年預測、Statcast、傷兵名單</div>
+    <div class="sumline">• ESPN 排名／ADP（公開資料）</div>
+    <div class="sumline">• Yahoo 全站 ADP、你們聯盟近兩年順位（用 App 裡的 Yahoo 登入）</div>
+    <div class="sumline">• FantasyPros 專家共識＋綜合 ADP（要你自己的金鑰）</div>
+    <h3>FantasyPros 金鑰 ${has ? '<span class="tag good">已設定</span>' : '<span class="tag">未設定</span>'}</h3>
+    <input id="fp-key" type="password" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="${has ? '已存（要換再貼新的）' : '從 Email 複製金鑰貼在這裡'}">
+    <p class="muted small">只存在這支手機的 App 裡，不會上傳到其他地方。免費版每天 50 次（App 一天用 2 次），回傳可能被截短。</p>
+    <div class="sh-acts"><button type="button" class="btn primary" data-src="save">儲存並測試</button>${has ? '<button type="button" class="btn" data-src="test">測試</button><button type="button" class="btn" data-src="clear">刪除金鑰</button>' : ''}</div>
+    <div id="fp-result" class="sumline" style="margin-top:10px"></div>`);
+  const out = box.querySelector('#fp-result');
+  const test = async () => {
+    out.textContent = '連線 FantasyPros 中…';
+    try {
+      const fp = await ADP.fantasypros(state.season + 1, { force: true });
+      out.innerHTML = `✅ 成功：專家共識 <b>${fp.ecr.length}</b> 人、綜合 ADP <b>${fp.adp.length}</b> 人（${fp.season} 季）。${fp.ecr.length < 200 ? '<br>人數偏少，免費版可能只給前面一部分。' : ''}`;
+      haptic('success');
+      loadAdp();
+    } catch (e) { out.textContent = `❌ ${e.message}`; haptic('error'); }
+  };
+  box.addEventListener('click', (e) => {
+    const a = e.target.closest('[data-src]')?.dataset.src;
+    if (a === 'save') { const v = box.querySelector('#fp-key').value.trim(); if (!v && !has) { out.textContent = '請先貼上金鑰'; return; } if (v) ADP.fpKey.set(v); box.querySelector('#fp-key').value = ''; test(); }
+    if (a === 'test') test();
+    if (a === 'clear') { ADP.fpKey.set(''); out.textContent = '已刪除金鑰'; loadAdp(); }
+  });
+}
+
 // ── 球員詳情卡 ──
 function openPlayer(id) {
   const p = state.ranked.find((x) => String(x.id) === String(id));
@@ -167,6 +201,7 @@ function bind() {
     if (g.dataset.open) { const el = document.getElementById(g.dataset.open); if (el) { el.open = true; el.scrollIntoView({ block: 'start' }); } }
   });
   $('#nav-back').addEventListener('click', () => showTab('more'));
+  $('#open-sources').addEventListener('click', openSources);
   // 打字時（鍵盤打開）把底部分頁列藏起來，不要擠在鍵盤上面
   const typing = (el) => el?.matches?.('input[type=search], input[type=text], textarea');
   document.addEventListener('focusin', (e) => { if (typing(e.target)) document.body.classList.add('kb'); });
@@ -307,17 +342,20 @@ async function load() {
 async function loadAdp() {
   const season = state.season + 1;
   const app = Y.hasBridge();
-  const [es, ya, lg] = await Promise.all([
+  const [es, ya, lg, fp] = await Promise.all([
     ADP.espn(season).catch(() => undefined),
     app ? ADP.yahoo().catch(() => undefined) : null,
     app ? ADP.league().catch(() => undefined) : null,
+    ADP.fantasypros(season).catch((e) => ({ error: e.message })),
   ]);
   const note = [];
   if (es === null) note.push(`ESPN ${season} 排名還沒公布`);
   if (es === undefined) note.push('ESPN 讀取失敗');
+  if (fp?.error) note.push(fp.error);
+  else if (!fp) note.push('FantasyPros 還沒設定金鑰（更多 → 資料來源）');
   if (!app) note.push('Yahoo 要在 App 裡才讀得到');
   else if (!ya) note.push(`Yahoo ${season} ADP 還沒開放`);
-  state.adp = ADP.attach(state.players, { yahoo: ya, espn: es, league: lg });
+  state.adp = ADP.attach(state.players, { yahoo: ya, espn: es, league: lg, fp: fp?.error ? null : fp });
   const src = ADP.marketSource(state.adp);
   state.market = src ? new Map([...state.adp].filter(([, v]) => v[src.key] != null).map(([k, v]) => [k, v[src.key]])) : null;
   state.marketLabel = src?.label ?? '自己估計';

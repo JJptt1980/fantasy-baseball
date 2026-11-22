@@ -35,6 +35,35 @@ export async function espn(season) {
   return out;
 }
 
+// FantasyPros 官方 API（使用者自己的金鑰，只存在手機；個人非商業使用；免費版每天 50 次、回傳可能截短）
+// 每天抓一次：專家共識排名（DRAFT）＋綜合 ADP（ADP），共 2 次呼叫
+const FP = 'https://api.fantasypros.com/public/v2/json';
+export const fpKey = {
+  get: () => { try { return localStorage.getItem('fp.key') || ''; } catch { return ''; } },
+  set: (k) => { try { k ? localStorage.setItem('fp.key', k.trim()) : localStorage.removeItem('fp.key'); localStorage.removeItem('adp.fp'); } catch { /* 略 */ } },
+};
+async function fpGet(path, key) {
+  const r = await fetch(`${FP}${path}`, { headers: { 'x-api-key': key } });
+  if (r.status === 403) throw new Error('FantasyPros 金鑰無效或還沒啟用');
+  if (r.status === 429) throw new Error('FantasyPros 今天的次數用完了');
+  if (!r.ok) throw new Error(`FantasyPros 讀取失敗（${r.status}）`);
+  return r.json();
+}
+export async function fantasypros(season, { force = false } = {}) {
+  const key = fpKey.get();
+  if (!key) return null;
+  const c = force ? null : cacheGet('adp.fp', DAY);
+  if (c) return c;
+  const rows = (j) => (j.players ?? []).map((p) => ({ name: p.player_name, pos: p.player_positions ?? '', rank: Number(p.rank_ecr) || null, owned: p.player_owned_yahoo ?? null }));
+  const [draft, adp] = await Promise.all([
+    fpGet(`/mlb/${season}/consensus-rankings?type=DRAFT&position=ALL`, key),
+    fpGet(`/mlb/${season}/consensus-rankings?type=ADP&position=ALL`, key).catch(() => ({ players: [] })),
+  ]);
+  const out = { season, ecr: rows(draft), adp: rows(adp) };
+  cacheSet('adp.fp', out);
+  return out;
+}
+
 // Yahoo 全站 ADP
 export async function yahoo() {
   const c = cacheGet('adp.yahoo', DAY);
@@ -69,7 +98,7 @@ export async function league() {
 }
 
 // 對到選秀表球員：回傳 Map(`${side}${id}` → { Y, E, Ead, L, Llast })
-export function attach(players, { yahoo: ya, espn: es, league: lg } = {}) {
+export function attach(players, { yahoo: ya, espn: es, league: lg, fp } = {}) {
   const m = new Map();
   const put = (p, k, v) => { if (!p) return; const key = `${p.side}${p.id}`; m.set(key, { ...(m.get(key) ?? {}), [k]: v }); };
   for (const r of ya ?? []) put(matchPlayer(r.name, players), 'Y', r.adp);
@@ -78,6 +107,9 @@ export function attach(players, { yahoo: ya, espn: es, league: lg } = {}) {
     if (r.rank) put(p, 'E', r.rank);
     if (r.adp) put(p, 'Ead', r.adp);
   }
+  const fpSide = (r) => (/\b(SP|RP|P)\b/.test(r.pos) && !/\b(C|1B|2B|3B|SS|OF|DH|LF|CF|RF)\b/.test(r.pos) ? ' (Pitcher)' : '');
+  for (const r of fp?.ecr ?? []) if (r.rank) put(matchPlayer(`${r.name}${fpSide(r)}`, players) ?? matchPlayer(r.name, players), 'X', r.rank);
+  for (const r of fp?.adp ?? []) if (r.rank) put(matchPlayer(`${r.name}${fpSide(r)}`, players) ?? matchPlayer(r.name, players), 'F', r.rank);
   for (const r of lg?.rows ?? []) { const p = matchPlayer(r.name, players); put(p, 'L', r.adp); if (r.last) put(p, 'Llast', r.last); }
   return m;
 }
@@ -85,7 +117,7 @@ export function attach(players, { yahoo: ya, espn: es, league: lg } = {}) {
 // 市場排名用哪一家：Yahoo ADP（你們在 Yahoo 打）→ ESPN ADP → ESPN 專家排名；至少要對到 120 人才採用
 export function marketSource(adp) {
   const n = (k) => [...adp.values()].filter((v) => v[k] != null).length;
-  for (const [k, label] of [['Y', 'Yahoo ADP'], ['Ead', 'ESPN ADP'], ['E', 'ESPN 排名']]) if (n(k) >= 120) return { key: k, label };
+  for (const [k, label] of [['Y', 'Yahoo ADP'], ['F', 'FantasyPros 綜合 ADP'], ['Ead', 'ESPN ADP'], ['X', 'FantasyPros 專家共識'], ['E', 'ESPN 排名']]) if (n(k) >= 120) return { key: k, label };
   return null;
 }
 
@@ -93,5 +125,5 @@ export function marketSource(adp) {
 export function adpLine(v) {
   if (!v) return '';
   const r = (x) => Math.round(x);
-  return [v.Y != null && `Yahoo ${r(v.Y)}`, v.Ead != null ? `ESPN ${r(v.Ead)}` : v.E != null && `ESPN 排名 ${v.E}`, v.Llast != null && `聯盟去年第 ${v.Llast}`].filter(Boolean).join('｜');
+  return [v.Y != null && `Yahoo ${r(v.Y)}`, v.F != null && `FP ADP ${r(v.F)}`, v.Ead != null ? `ESPN ${r(v.Ead)}` : v.E != null && `ESPN 排名 ${v.E}`, v.X != null && `專家 ${r(v.X)}`, v.Llast != null && `聯盟去年第 ${v.Llast}`].filter(Boolean).join('｜');
 }
