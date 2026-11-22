@@ -438,3 +438,6 @@ details.card, .card, #mn-recs { scroll-margin-top: 64px; }
 .taken-btn { min-height: var(--tap); padding: 4px 12px; white-space: nowrap; font-size: var(--fs-sub); }
 .fc-rec { grid-template-columns: 40px 1fr auto; }
 #tab-demo.playing .opp-card { display: none; }
+.roll-row { padding: 6px 2px; border-bottom: 1px solid var(--border); font-size: var(--fs-sub); animation: rollin .15s ease; }
+@keyframes rollin { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+.draft-head .just { margin-top: 2px; }

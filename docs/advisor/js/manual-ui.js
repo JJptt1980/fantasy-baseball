@@ -105,27 +105,54 @@ function draftWithUndo(fn, name) {
   const before = JSON.parse(JSON.stringify(g.serialize()));
   const seenBefore = st.lastSeen;
   const wasDraft = g.phase === 'draft';
+  const startLen = g.draftLog.length;
   try {
     st.lastSeen = g.draftLog.length + 1;
     fn();
     st.q = '';
     if (wasDraft && g.phase !== 'draft') st.showReport = true;
     save();
-    render();
   } catch (e) { console.error(e); status(e.message, 'error'); return; }
   haptic('mark');
-  const target = g.phase === 'draft' ? $('#mn-recs') : null;
-  if (target) target.scrollIntoView({ block: 'start' }); else window.scrollTo(0, 0);
-  toast(name ? `選了 ${name}` : '剩下照建議選完', {
-    undo: () => {
-      st.g = restoreGame(boardFor(st.sel), before, { profiles: st.gProfiles, weekly: st.prep.weekly });
-      st.lastSeen = seenBefore;
-      st.showReport = false;
-      save();
-      render();
-      $('#mn-recs')?.scrollIntoView({ block: 'start' });
-    },
-  });
+  const undo = () => {
+    stopRoll();
+    st.g = restoreGame(boardFor(st.sel), before, { profiles: st.gProfiles, weekly: st.prep.weekly });
+    st.lastSeen = seenBefore;
+    st.showReport = false;
+    save();
+    render();
+    $('#mn-recs')?.scrollIntoView({ block: 'start' });
+  };
+  const finish = () => {
+    render();
+    const target = g.phase === 'draft' ? $('#mn-recs') : null;
+    if (target) { window.scrollTo(0, 0); } else window.scrollTo(0, 0);
+    if (g.phase === 'draft') haptic('tap');
+  };
+  toast(name ? `選了 ${name}` : '剩下照建議選完', { undo });
+  // 你選完之後，別隊輪流選人：一個一個顯示（每人 0.15 秒，可跳過），讓你看到「輪流」
+  const others = name ? g.draftLog.slice(startLen + 1).filter((x) => x.team !== g.mySlot) : [];
+  if (!others.length) return finish();
+  rollOthers(others, finish);
+}
+
+let rollTimer = null;
+function stopRoll() { clearTimeout(rollTimer); rollTimer = null; }
+function rollOthers(picks, done) {
+  const g = st.g;
+  window.scrollTo(0, 0);
+  $('#mn-body').innerHTML = `<div class="card roll"><div class="dh-turn">別隊輪流選人中… <button type="button" class="help" data-act="roll-skip">跳過</button></div>
+    <div id="roll-list"></div></div>`;
+  const list = $('#roll-list');
+  let i = 0;
+  const step = () => {
+    if (i >= picks.length) { rollTimer = setTimeout(() => { stopRoll(); done(); }, 350); return; }
+    const x = picks[i++];
+    list.insertAdjacentHTML('beforeend', `<div class="roll-row"><span class="muted small">第 ${x.round} 輪第 ${x.pick} 位</span> <b>${esc(g.names[x.team])}</b> 選了 ${esc(x.player.name)} <span class="pos">${esc(x.player.pos)}</span></div>`);
+    rollTimer = setTimeout(step, 150);
+  };
+  st.rollDone = () => { stopRoll(); done(); };
+  step();
 }
 
 function act(fn) {
@@ -206,6 +233,7 @@ function renderDraft() {
     <div class="draft-head">
       <div class="dh-turn">第 ${tu.round} 輪・輪到你 <button type="button" class="help" data-act="draft-help" aria-label="怎麼選">？</button></div>
       <div class="sumline small">${opt.open.length ? `還缺 <b>${esc(openTxt)}</b>` : '位置都滿了，選替補'}${opt.forced ? '｜<b class="bad-text">只能選缺的位置</b>' : ''}</div>
+      ${since.length ? `<div class="muted small just">剛剛別隊選了 ${since.length} 人：${since.slice(0, 4).map((x) => esc(x.player.name)).join('、')}${since.length > 4 ? '…' : ''}</div>` : ''}
     </div>
     <div class="card" id="mn-recs">
       <div class="muted small" style="margin-bottom:4px">👆 點名字＝選他（點錯可「復原」）</div>
@@ -440,6 +468,7 @@ export function initManual({ getSelection, getSeason, getProfiles }) {
     }
     const a = b.dataset.act;
     if (a === 'draft-rest') return draftWithUndo(() => g.autoDraftRest(), null);
+    if (a === 'roll-skip') return st.rollDone?.();
     if (a === 'draft-help') return draftHelp();
     if (a === 'report-ok') { st.showReport = false; render(); return top(); }
     if (a === 'auto-moves') return act(() => { const n = g.autoMoves(); if (!n) setTimeout(() => status('目前沒有值得換的人。'), 0); });

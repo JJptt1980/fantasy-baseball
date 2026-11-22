@@ -233,7 +233,19 @@ function openRoom() {
 }
 
 // ── 畫面 ──
+// 別人選了清單外的人：打名字找到他 → 按「被選走」
+function renderOther() {
+  const q = $('#ds-q').value.trim().toLowerCase();
+  const res = $('#ds-q-res');
+  if (q.length < 2) { res.innerHTML = '<div class="muted small">打 2 個字以上</div>'; return; }
+  const marks = st.getMarks?.() ?? {};
+  const taken = new Set([...(st.ctx?.s.takenIds ?? [])]);
+  const hits = st.getBoard().filter((p) => p.name.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').includes(q) && !taken.has(p.id) && !marks[p.id]).slice(0, 6);
+  res.innerHTML = hits.map((p) => `<div class="mn-row"><div><b>${esc(p.name)}</b> <span class="pos">${esc(p.pos)}</span> <span class="muted small">選秀表第 ${p.rank}</span></div>${takenBtn(p)}</div>`).join('') || '<div class="muted small">找不到（可能已經標過了）</div>';
+}
+
 function renderButtons() {
+  $('#ds-other').hidden = !st.running;
   $('#ds-start').hidden = st.running;
   $('#ds-stop').hidden = !st.running;
   $('#ds-pause').hidden = !(st.running && st.source?.kind === 'replay');
@@ -298,6 +310,11 @@ export function initDraftSync({ getBoard, applyMarks, getMarks, setMarks }) {
   $('#ds-mode').addEventListener('change', syncMode);
   $('#ds-slot').addEventListener('change', (e) => { lsSet(LS.slot, e.target.value); if (st.running) tick(); });
   $('#ds-start').addEventListener('click', start);
+  $('#ds-q').addEventListener('input', renderOther);
+  $('#ds-other').addEventListener('click', (e) => {
+    const t = e.target.closest('[data-taken]');
+    if (t) { markTaken(Number(t.dataset.taken)); $('#ds-q').value = ''; renderOther(); }
+  });
   $('#ds-stop').addEventListener('click', stop);
   $('#ds-pause').addEventListener('click', () => {
     if (st.source?.paused) st.source.resume(); else st.source?.pause();
