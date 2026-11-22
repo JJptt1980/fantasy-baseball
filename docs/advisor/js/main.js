@@ -1,6 +1,7 @@
 import { seasonStats, toMaps } from './mlb.js';
 import { buildPlayers, board } from './rank.js';
 import { BASE, STRATEGIES, PREFS, buildConfig } from './strategies.js';
+import { initPickup } from './pickup-ui.js';
 
 const $ = (s) => document.querySelector(s);
 const LS = { strat: 'adv.strategies', prefs: 'adv.prefs', notes: 'adv.notes', marks: 'adv.marks', tab: 'adv.tab' };
@@ -153,6 +154,7 @@ function showTab(tab) {
   $('#tab-draft').hidden = tab !== 'draft';
   $('#tab-pickup').hidden = tab !== 'pickup';
   lsSet(LS.tab, tab);
+  if (tab === 'pickup') pickup?.onShow();
 }
 
 async function load() {
@@ -169,7 +171,9 @@ async function load() {
   }
 }
 
+let pickup = null;
 renderChecks();
 bind();
+pickup = initPickup();
 showTab(lsGet(LS.tab, 'draft'));
 load();

@@ -51,9 +51,41 @@
 
     <section id="tab-pickup" hidden>
       <div class="card">
-        <h2>季中撿人</h2>
-        <p class="muted">下一版：登入 Yahoo 後自動抓你的陣容、當週對手和自由球員，依「近況 × 你的隊形 × 對手近況」排推薦。</p>
+        <div class="acct">
+          <span id="pk-who" class="muted">尚未讀取 Yahoo</span>
+          <span class="acct-btns">
+            <button type="button" id="pk-login" class="btn">登入 Yahoo</button>
+            <button type="button" id="pk-refresh" class="btn">↻ 更新</button>
+          </span>
+        </div>
+        <div class="two">
+          <label>聯盟<select id="pk-league"></select></label>
+          <label>對手（週次）<select id="pk-week"></select></label>
+        </div>
       </div>
+
+      <div class="card">
+        <h3 class="first">我想要</h3>
+        <div class="chips" id="pk-chips"></div>
+        <input id="pk-wants" type="search" placeholder="也可以打字，例如：我缺救援、這週局數不夠">
+      </div>
+
+      <div id="pk-status" class="status" hidden></div>
+      <div id="pk-summary" class="card" hidden></div>
+
+      <div class="seg" id="pk-mode">
+        <button type="button" data-mode="recent" class="on">近況</button>
+        <button type="button" data-mode="fit">配合隊形</button>
+        <button type="button" data-mode="opp">配合對手</button>
+      </div>
+      <div class="seg sm" id="pk-side">
+        <button type="button" data-side="B" class="on">打者</button>
+        <button type="button" data-side="P">投手</button>
+      </div>
+      <p class="muted small" id="pk-mode-desc"></p>
+      <ol id="pk-list" class="board"></ol>
+
+      <div class="card" id="pk-picked" hidden></div>
     </section>
   </main>
 </body>

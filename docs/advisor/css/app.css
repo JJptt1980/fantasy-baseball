@@ -84,3 +84,32 @@ textarea, input[type=search], select {
 .row.taken .name { text-decoration: line-through; }
 .row.taken .acts .b-taken { background: var(--surface-2); }
 .round-sep { padding: 10px 6px 4px; font-size: 12px; color: var(--muted); border-bottom: 1px solid var(--border); }
+
+/* ── 撿人頁 ── */
+.acct { display: flex; justify-content: space-between; align-items: center; gap: 8px; flex-wrap: wrap; }
+.acct-btns { display: flex; gap: 6px; }
+.btn { border: 1px solid var(--border); background: var(--surface-2); border-radius: 10px; padding: 6px 12px; min-height: 38px; }
+.btn.primary { background: var(--accent); border-color: var(--accent); color: #fff; font-weight: 600; }
+.two { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 10px; }
+.two label { display: flex; flex-direction: column; gap: 4px; font-size: 12px; color: var(--muted); }
+h3.first { margin-top: 0; }
+.chips { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 8px; }
+.chip { border: 1px solid var(--border); background: transparent; border-radius: 999px; padding: 4px 12px; min-height: 34px; font-size: 14px; }
+.chip.on { background: var(--accent); border-color: var(--accent); color: #fff; }
+.seg { display: flex; background: var(--surface); border-radius: 10px; padding: 3px; gap: 3px; margin-bottom: 8px; }
+.seg button { flex: 1; border: 0; background: transparent; border-radius: 8px; min-height: 38px; }
+.seg button.on { background: var(--surface-2); color: #fff; font-weight: 600; box-shadow: inset 0 0 0 1px var(--border); }
+.seg.sm button { min-height: 32px; font-size: 14px; }
+.sumline { font-size: 14px; margin: 4px 0; line-height: 1.6; }
+.tag { display: inline-block; font-size: 12px; padding: 1px 8px; border-radius: 999px; margin: 2px 2px 0 0; background: var(--surface-2); }
+.tag.bad { color: var(--bad); }
+.tag.good { color: var(--good); }
+.tag.warn { color: var(--warn); }
+.pk { display: grid; grid-template-columns: 32px 1fr; gap: 8px; padding: 10px 4px; border-bottom: 1px solid var(--border); }
+.pk input[type=checkbox] { width: 22px; height: 22px; accent-color: var(--accent); margin-top: 2px; }
+.pk .why { margin-top: 3px; }
+.pk .note { width: 100%; margin-top: 6px; background: var(--surface-2); border: 1px solid var(--border); border-radius: 8px; padding: 6px 8px; font-size: 14px; color: var(--text); }
+.pk.checked { background: rgba(124, 92, 255, 0.12); }
+.pk .name { font-weight: 600; }
+.pk .pos { font-size: 12px; padding: 1px 6px; border-radius: 6px; background: var(--surface-2); margin-left: 6px; font-weight: 500; }
+.pk .line { font-size: 12px; color: var(--muted); font-variant-numeric: tabular-nums; margin-top: 2px; }

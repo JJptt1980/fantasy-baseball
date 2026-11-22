@@ -41,6 +41,10 @@ public class MainActivity extends Activity {
         s.setAllowFileAccess(false);
         s.setAllowContentAccess(false);
 
+        // 只有自己的頁面（assets）會載入這個 WebView，外部連結一律交給系統瀏覽器
+        web.addJavascriptInterface(new YahooBridge(this, web), "AndroidBridge");
+        android.webkit.CookieManager.getInstance().setAcceptCookie(true);
+
         web.setWebViewClient(new WebViewClient() {
             @Override
             public WebResourceResponse shouldInterceptRequest(WebView view, WebResourceRequest request) {
@@ -71,6 +75,14 @@ public class MainActivity extends Activity {
         setContentView(root);
         if (savedInstanceState != null) web.restoreState(savedInstanceState);
         else web.loadUrl(START);
+    }
+
+    @Override
+    protected void onActivityResult(int requestCode, int resultCode, Intent data) {
+        super.onActivityResult(requestCode, resultCode, data);
+        if (requestCode == YahooBridge.LOGIN_REQUEST && resultCode == RESULT_OK) {
+            web.evaluateJavascript("window.__onYahooLogin && window.__onYahooLogin()", null);
+        }
     }
 
     @Override
