@@ -3,6 +3,7 @@
 import { CATS, CAT_LABEL, teamLine, scale, margin } from './pickup.js';
 import { normName } from './pickup.js';
 import { contributions } from './rank.js';
+import { recommend } from './draft-sync.js';
 
 const LOWER = new Set(['B:K', 'P:L', 'P:BB', 'P:ERA', 'P:WHIP']);
 const BAT_SLOTS = ['C', '1B', '2B', '3B', 'SS', 'IF', 'OF', 'OF', 'OF', 'OF', 'OF', 'Util'];
@@ -163,6 +164,7 @@ export function draft(players, { mySlot, profiles, r }) {
   const pool = r.shuffle([...(profiles ?? [])]);
   for (let t = 0; t < TEAMS; t++) if (t !== mySlot) ai[t] = pool.pop() ?? null;
   const log = [];
+  const taken = new Set();
   for (let round = 1; round <= ROUNDS; round++) {
     const order = round % 2 ? [...Array(TEAMS).keys()] : [...Array(TEAMS).keys()].reverse();
     for (const t of order) {
@@ -174,7 +176,9 @@ export function draft(players, { mySlot, profiles, r }) {
       if (!cands.length) cands = [...avail.values()];
       let pick;
       if (t === mySlot) {
-        pick = cands.reduce((a, b) => (b.rank < a.rank ? b : a));
+        // 跟手動玩、選秀同步同一套推薦（守位缺口＋急迫度＋類別平衡）
+        pick = recommend({ board: players, takenIds: taken, myPlayers: team, myPicksLeft: left, n: 1 })[0]?.p
+          ?? cands.reduce((a, b) => (b.rank < a.rank ? b : a));
       } else {
         const prof = ai[t];
         const b = bucketOf(round);
@@ -195,6 +199,7 @@ export function draft(players, { mySlot, profiles, r }) {
       }
       team.push(pick);
       avail.delete(pick.id);
+      taken.add(pick.id);
       log.push({ round, team: t, player: pick });
     }
   }
