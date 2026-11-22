@@ -223,6 +223,10 @@ function bind() {
     if (g.dataset.open) { const el = document.getElementById(g.dataset.open); if (el) { el.open = true; el.scrollIntoView({ block: 'start' }); } }
   });
   $('#nav-back').addEventListener('click', () => showTab('more'));
+  // 打字時（鍵盤打開）把底部分頁列藏起來，不要擠在鍵盤上面
+  const typing = (el) => el?.matches?.('input[type=search], input[type=text], textarea');
+  document.addEventListener('focusin', (e) => { if (typing(e.target)) document.body.classList.add('kb'); });
+  document.addEventListener('focusout', (e) => { if (typing(e.target)) document.body.classList.remove('kb'); });
 
   $('#strategy-box').addEventListener('change', (e) => {
     const t = e.target;

@@ -325,13 +325,13 @@ body.no-scroll { overflow: hidden; }
 .kpis span { font-size: var(--fs-caption); color: var(--muted); }
 /* 迷你長條 */
 .mbars { display: grid; gap: 6px; }
-.mb { display: grid; grid-template-columns: 5.2em 1fr 4.2em; align-items: center; gap: 8px; font-size: var(--fs-caption); }
+.mb { display: grid; grid-template-columns: 5.2em 1fr 5em; align-items: center; gap: 8px; font-size: var(--fs-caption); }
 .mb-l { color: var(--muted); white-space: nowrap; }
 .mb-t { height: 8px; border-radius: 4px; background: var(--surface-2); overflow: hidden; }
 .mb-t i { display: block; height: 100%; border-radius: 4px; background: var(--accent-strong); }
 .mb-t i.good { background: var(--good); }
 .mb-t i.bad { background: var(--bad); }
-.mb-v { text-align: right; font-variant-numeric: tabular-nums; }
+.mb-v { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
 /* 小折線 */
 .spark { color: var(--accent-text); display: block; max-width: 100%; height: auto; }
 .trend .spark { width: 100%; margin: 4px 0; }
@@ -382,3 +382,4 @@ body.no-scroll { overflow: hidden; }
 .fc-name { font-size: var(--fs-title); font-weight: 700; }
 #ds-focus-open { width: 100%; margin: 6px 0 10px; }
 .sheet .note { color: var(--warn); font-size: var(--fs-sub); margin-top: 4px; }
+body.kb .tabbar, body.kb .toast { display: none; }

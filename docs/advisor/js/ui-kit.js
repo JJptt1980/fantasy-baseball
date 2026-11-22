@@ -16,9 +16,9 @@ export function haptic(kind = 'tap') {
   try { navigator.vibrate?.(HAPTIC[kind] ?? 10); } catch { /* 不支援就算了 */ }
 }
 
-// ── 復原提示（底部浮出，4 秒後消失） ──
+// ── 復原提示（底部浮出，6 秒後消失） ──
 let toastTimer = null;
-export function toast(msg, { undo, ms = 4000 } = {}) {
+export function toast(msg, { undo, ms = 6000 } = {}) {
   let el = document.getElementById('toast');
   if (!el) {
     el = document.createElement('div');
