@@ -175,7 +175,7 @@ h3.first { margin-top: 0; }
 .mn-lu .slot { display: inline-block; min-width: 36px; font-size: 12px; color: var(--muted); }
 .mn-lu.bench { opacity: .65; }
 .mn-bar { display: flex; gap: 6px; }
-.mn-bar .btn { flex: 1 1 0; min-height: 40px; padding: 4px 6px; font-size: 14px; white-space: nowrap; }
+.mn-bar .btn { flex: 1 1 0; min-width: 0; min-height: 42px; padding: 4px 4px; font-size: 14px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .mn-sticky { padding: 6px 0 calc(env(safe-area-inset-bottom) + 6px); border-top: 1px solid var(--border); }
 details.sub summary { cursor: pointer; }
 

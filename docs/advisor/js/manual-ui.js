@@ -93,10 +93,12 @@ function act(fn) {
 const era = (l) => (l.IP ? ((l.ER * 9) / l.IP).toFixed(2) : '-');
 const whip = (l) => (l.IP ? (l.WH / l.IP).toFixed(2) : '-');
 const isSP = (p) => p.pos === 'SP';
+// 兩年加權的數字會有小數 → 四捨五入
+const n0 = (v) => Math.round(v ?? 0);
 const pLine = (p) => (p.side === 'B'
-  ? `R ${p.R}｜HR ${p.HR}｜RBI ${p.RBI}｜SB ${p.SB}｜AVG ${(p.AVG || 0).toFixed(3).replace(/^0/, '')}｜OPS ${(p.OPS || 0).toFixed(3).replace(/^0/, '')}`
-  : isSP(p) ? `${Math.round(p.IP)} 局｜W ${p.W}｜K ${p.K}｜ERA ${era(p)}｜WHIP ${whip(p)}`
-    : `${Math.round(p.IP)} 局｜SV ${p.SV}｜HLD ${p.HLD}｜K ${p.K}｜ERA ${era(p)}`);
+  ? `R ${n0(p.R)}｜HR ${n0(p.HR)}｜RBI ${n0(p.RBI)}｜SB ${n0(p.SB)}｜AVG ${(p.AVG || 0).toFixed(3).replace(/^0/, '')}｜OPS ${(p.OPS || 0).toFixed(3).replace(/^0/, '')}`
+  : isSP(p) ? `${n0(p.IP)} 局｜W ${n0(p.W)}｜K ${n0(p.K)}｜ERA ${era(p)}｜WHIP ${whip(p)}`
+    : `${n0(p.IP)} 局｜SV ${n0(p.SV)}｜HLD ${n0(p.HLD)}｜K ${n0(p.K)}｜ERA ${era(p)}`);
 const recentLine = (l, p) => (l.side === 'B'
   ? `每週 R ${l.R.toFixed(1)} HR ${l.HR.toFixed(1)} RBI ${l.RBI.toFixed(1)} SB ${l.SB.toFixed(1)} AVG ${(l.AVG || 0).toFixed(3).replace(/^0/, '')}`
   : p && isSP(p) ? `每週 ${l.IP.toFixed(1)} 局 K ${l.K.toFixed(1)} W ${l.W.toFixed(1)} ERA ${era(l)} WHIP ${whip(l)}`
@@ -227,8 +229,8 @@ function renderWeek() {
 
   const out = isPO && pv.opp == null && !(g.seeds.indexOf(g.mySlot) <= 1 && pv.week === 24);
   const bar = out
-    ? `<button type="button" class="btn primary" data-act="play">▶ 看第 ${pv.week} 週</button><button type="button" class="btn" data-act="auto-rest">⏭ 直接看結果</button>`
-    : `<button type="button" class="btn primary" data-act="play">▶ 開打第 ${pv.week} 週</button>${pv.opp != null ? '<button type="button" class="btn" data-act="auto-play">照建議＋開打</button>' : ''}<button type="button" class="btn" data-act="auto-rest">⏭ 全自動</button>`;
+    ? `<button type="button" class="btn primary" data-act="play">▶ 看下一週</button><button type="button" class="btn" data-act="auto-rest">⏭ 看結果</button>`
+    : `<button type="button" class="btn primary" data-act="play">▶ 開打</button>${pv.opp != null ? '<button type="button" class="btn" data-act="auto-play">照建議打</button>' : ''}<button type="button" class="btn" data-act="auto-rest">⏭ 全自動</button>`;
   $('#mn-body').innerHTML = lastHtml + bracketHtml + head + (pv.opp != null ? ilCard + sugg + manual + lu : '') + standHtml + `
     <div class="mn-sticky"><div class="mn-bar">${bar}</div></div>`;
 }
@@ -299,12 +301,12 @@ export function initManual({ getSelection, getSeason, getProfiles }) {
     }
     const a = b.dataset.act;
     if (a === 'draft-auto1') return act(() => { st.lastSeen = g.draftLog.length + 1; g.draftPick(g.draftOptions().recommended[0].id); top(); });
-    if (a === 'draft-rest') return act(() => g.autoDraftRest());
+    if (a === 'draft-rest') return act(() => { g.autoDraftRest(); top(); });
     if (a === 'auto-moves') return act(() => { const n = g.autoMoves(); if (!n) setTimeout(() => status('目前沒有值得換的人。'), 0); });
     if (a === 'lu-reset') return act(() => g.resetLineup());
     if (a === 'play') return act(() => { st.openLineup = false; g.playWeek(); window.scrollTo(0, 0); });
     if (a === 'auto-play') return act(() => { g.autoMoves(); g.playWeek(); window.scrollTo(0, 0); });
-    if (a === 'auto-rest') return act(() => g.autoRest());
+    if (a === 'auto-rest') return act(() => { g.autoRest(); top(); });
     if (a === 'new') { lsSet(LS_SAVE, null); st.g = null; render(); }
   });
   body.addEventListener('input', (e) => {
