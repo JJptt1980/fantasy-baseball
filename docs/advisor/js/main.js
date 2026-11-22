@@ -1,5 +1,7 @@
 import { seasonStats, toMaps, lastFetched } from './mlb.js';
 import { projections, luck, injuries, withProjections, annotate } from './projections.js';
+import * as ADP from './adp.js';
+import * as Y from './yahoo-source.js';
 import { buildPlayers, board } from './rank.js';
 import { BASE, STRATEGIES, PREFS, buildConfig } from './strategies.js';
 import { initPickup } from './pickup-ui.js';
@@ -7,7 +9,7 @@ import { initDemo } from './demo-ui.js';
 import { initLive } from './live-ui.js';
 import { initDraftSync } from './draft-sync-ui.js';
 import { haptic, toast, swipeRows, pullToRefresh, skeleton } from './ui-kit.js';
-import { reasonOf, openPlayerCard } from './player-card.js';
+import { reasonOf, openPlayerCard, statLine as cardStatLine } from './player-card.js';
 
 const $ = (s) => document.querySelector(s);
 const LS = { strat: 'adv.strategies', prefs: 'adv.prefs', notes: 'adv.notes', marks: 'adv.marks', tab: 'adv.tab' };
@@ -74,18 +76,12 @@ function updateSummary() {
 
 // ── 選秀表 ──
 
-function statLine(p) {
-  if (p.side === 'B') {
-    return `R ${p.R}｜HR ${p.HR}｜RBI ${p.RBI}｜SB ${p.SB}｜AVG ${p.AVG.toFixed(3).replace(/^0/, '')}｜OPS ${p.OPS.toFixed(3).replace(/^0/, '')}`;
-  }
-  const era = ((p.ER * 9) / p.IP).toFixed(2);
-  const whip = (p.WH / p.IP).toFixed(2);
-  return `${p.IP.toFixed(0)} 局｜W ${p.W}｜SV ${p.SV}｜HLD ${p.HLD}｜K ${p.K}｜ERA ${era}｜WHIP ${whip}`;
-}
+// 數字一律四捨五入（混了預測之後會有小數）
+const statLine = cardStatLine;
 
 function recompute() {
   if (!state.players) return;
-  state.ranked = board(state.players, buildConfig(state.selected, state.prefs));
+  state.ranked = board(state.players, { ...buildConfig(state.selected, state.prefs), market: state.market });
   renderBoard();
   if (!$('#tab-today').hidden) renderToday();
 }
@@ -113,7 +109,7 @@ function renderBoard() {
       <div>
         <div class="name">${esc(p.name)}<span class="pos">${esc(p.pos)}</span></div>
         <div class="line">${esc(p.team)}・${p.age} 歲｜${esc(statLine(p))}</div>
-        <div class="why1">${esc(reasonOf(p))}</div>
+        <div class="why1">${esc(reasonOf(p))}</div>${state.adp?.get(`${p.side}${p.id}`) ? `<div class="line">${esc(ADP.adpLine(state.adp.get(`${p.side}${p.id}`)))}</div>` : ''}
       </div>
       <div class="acts">
         <button type="button" class="b-mine" data-act="mine" aria-label="我選了">我選</button>
@@ -125,7 +121,7 @@ function renderBoard() {
   const taken = Object.values(state.marks).filter((m) => m === 'taken').length;
   const at = lastFetched(state.season);
   const atTxt = at ? `｜MLB 數據 ${new Date(at).toLocaleDateString('zh-TW', { month: 'numeric', day: 'numeric' })} 抓的（${state.season} 季已結束就不再抓；季中一天最多抓一次）` : '';
-  $('#board-meta').textContent = `依 ${state.dataNote ?? `${state.season} 季`}（含 ${state.season - 1} 季判斷傷病）MLB 官方數據｜我選了 ${mine} 人、被選走 ${taken} 人｜「市」＝市場排名｜往右滑＝我選、往左滑＝被選，點一下看詳情${atTxt}`;
+  $('#board-meta').textContent = `依 ${state.dataNote ?? `${state.season} 季`}（含 ${state.season - 1} 季判斷傷病）MLB 官方數據｜我選了 ${mine} 人、被選走 ${taken} 人｜「市」＝市場排名（${state.marketLabel ?? '自己估計'}）${state.adpNote ? `｜${state.adpNote}` : ''}｜往右滑＝我選、往左滑＝被選，點一下看詳情${atTxt}`;
 }
 
 // ── 標記（震動＋可復原） ──
@@ -148,8 +144,10 @@ function openPlayer(id) {
   const p = state.ranked.find((x) => String(x.id) === String(id));
   if (!p) return;
   const mark = state.marks[p.id];
+  const av = state.adp?.get(`${p.side}${p.id}`);
   openPlayerCard(p, {
     season: state.season,
+    extra: av ? `<div class="sumline">各家順位：${esc(ADP.adpLine(av))}</div>` : '',
     actions: [
       { label: mark === 'mine' ? '取消「我選」' : '我選了', primary: true, run: () => setMark(p.id, 'mine') },
       { label: mark === 'taken' ? '取消「被選」' : '被選走', run: () => setMark(p.id, 'taken') },
@@ -296,12 +294,35 @@ async function load() {
     state.dataNote = proj?.sources.length ? `${state.season + 1} 預測（MLB ${proj.sources.join('、')}）60%＋${state.season} 實際 40%` : `${state.season} 實際成績（預測讀不到，改用 Marcel 推估）`;
     setStatus('');
     recompute();
+    loadAdp();
   } catch (e) {
     console.error(e);
     haptic('error');
     $('#board').innerHTML = '';
     setStatus(`${e.message || '讀取失敗'}。請確認網路連線後按重試。`, 'error', () => load());
   }
+}
+
+// 各家 ADP（背景讀，讀到就重排）：ESPN 隨處可讀；Yahoo 全站與聯盟歷史要在 App 裡（用你的 Yahoo 登入）
+async function loadAdp() {
+  const season = state.season + 1;
+  const app = Y.hasBridge();
+  const [es, ya, lg] = await Promise.all([
+    ADP.espn(season).catch(() => undefined),
+    app ? ADP.yahoo().catch(() => undefined) : null,
+    app ? ADP.league().catch(() => undefined) : null,
+  ]);
+  const note = [];
+  if (es === null) note.push(`ESPN ${season} 排名還沒公布`);
+  if (es === undefined) note.push('ESPN 讀取失敗');
+  if (!app) note.push('Yahoo 要在 App 裡才讀得到');
+  else if (!ya) note.push(`Yahoo ${season} ADP 還沒開放`);
+  state.adp = ADP.attach(state.players, { yahoo: ya, espn: es, league: lg });
+  const src = ADP.marketSource(state.adp);
+  state.market = src ? new Map([...state.adp].filter(([, v]) => v[src.key] != null).map(([k, v]) => [k, v[src.key]])) : null;
+  state.marketLabel = src?.label ?? '自己估計';
+  state.adpNote = note.join('、');
+  recompute();
 }
 
 let pickup = null;

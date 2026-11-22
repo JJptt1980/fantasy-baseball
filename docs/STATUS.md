@@ -62,7 +62,12 @@
   Demo 只用開季前預測（projected、ZiPS），確認過 2026 預測沒偷看（Crow-Armstrong 預測 23 轟，實際 45）
   變化：Ohtani 30→6、Soto 47→2、Judge 578→19（去年受傷）；中繼投手（HLD 類別）排名偏高，等第 2 階段真實 ADP 修正
   **注意**：Python 版 sim/rank.py 與 draft/2027-draft-board.csv 沒有預測資料，跟 App 選秀表不同了（App 為準）
-- 球員評價第 2 階段（待做，已獲同意）：FantasyPros API（Yahoo/ESPN/CBS/NFBC ADP＋專家共識，**要使用者申請金鑰**）、Yahoo 選秀分析頁、聯盟 10 年真實順位、ESPN 公開 JSON（2 月才有 2027）；全部一天最多抓一次
+- 球員評價第 2 階段（2026-11-22 做了不需要金鑰的部分）：js/adp.js
+  ESPN 公開 JSON（專家排名＋ADP，App 網頁可直接讀）、Yahoo 全站選秀分析頁（App 內用 Yahoo 登入讀）、你們聯盟近兩年真實順位（近一季權重 2）；
+  一天最多抓一次（聯盟歷史一週一次）。選秀表每列顯示「Yahoo 45｜ESPN 50｜聯盟去年第 38」，市場排名改用真實 ADP（Yahoo → ESPN ADP → ESPN 排名，至少對到 120 人才用）
+  用 ESPN 2026 驗證：600 人對到 548 人，沒被市場排的中繼投手會掉回後面
+  **待驗證**：ESPN 2027 目前 404（約 2 月公布）；Yahoo 選秀分析頁休賽季打不開，解析是照表頭找「Avg Pick」寫的，2027 年 2 月要在 App 實測；聯盟歷史要接上 V2126 實測
+  還沒做：FantasyPros API（等使用者申請金鑰：https://secure.fantasypros.com/api-keys/request/）
 
 ## 已定案的決定
 - 聯盟：West Bay Star（ID 105537），12 隊、H2H 18 類別、6 隊季後賽（第 24–26 週）、每年重選

@@ -142,7 +142,12 @@ export function board(basePlayers, config = {}) {
   const market = basePlayers.map((p) => ({ ...p }));
   zScore(market, {});
   // 二刀流（例：Ohtani）打者、投手同一個 MLB 編號 → 用「打/投＋編號」當 key
-  const mrank = new Map([...market].sort((a, b) => b.raw - a.raw).map((p, i) => [`${p.side}${p.id}`, i + 1]));
+  let mrank = new Map([...market].sort((a, b) => b.raw - a.raw).map((p, i) => [`${p.side}${p.id}`, i + 1]));
+  // 有真實 ADP（Yahoo／ESPN）就用它當市場排名；ADP 名單外的人排在後面、照估計排序（Python 版沒有這段）
+  if (cfg.market?.size) {
+    const v = (k) => cfg.market.get(k) ?? 1000 + mrank.get(k);
+    mrank = new Map([...mrank.keys()].sort((a, b) => v(a) - v(b)).map((k, i) => [k, i + 1]));
+  }
 
   const mine = basePlayers.map((p) => ({ ...p }));
   zScore(mine, cfg.weights);

@@ -248,3 +248,23 @@ export function parseLeagueRules(doc) {
     tradeEnd: kv['Trade End Date'] ?? null,
   };
 }
+
+// Yahoo 全站選秀分析 /b1/draftanalysis（ADP）→ [{ name, adp, pct }]
+// 尚未在登入狀態下驗證過版面（休賽季打不開）：用表頭找「Avg Pick」那一欄，找不到就回空陣列
+export function parseDraftAnalysis(doc) {
+  const out = [];
+  for (const t of doc.querySelectorAll('table')) {
+    const heads = [...t.querySelectorAll('thead th, tr:first-child th')].map(text);
+    const ai = heads.findIndex((h) => /avg\.?\s*pick/i.test(h));
+    if (ai < 0) continue;
+    const pi = heads.findIndex((h) => /%\s*drafted|percent/i.test(h));
+    for (const tr of t.querySelectorAll('tbody tr')) {
+      const a = tr.querySelector('a.name') ?? tr.querySelector('a[href*="/players/"]');
+      const cells = tr.querySelectorAll('td');
+      const adp = Number(text(cells[ai]).replace(/[^\d.]/g, ''));
+      if (!a || !Number.isFinite(adp) || !adp) continue;
+      out.push({ name: text(a), adp, pct: pi >= 0 ? Number(text(cells[pi]).replace(/[^\d.]/g, '')) || null : null });
+    }
+  }
+  return out;
+}

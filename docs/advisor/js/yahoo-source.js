@@ -96,6 +96,17 @@ export async function leagueHistory(league, years = 10, onProgress = () => {}) {
   return out;
 }
 
+// Yahoo 全站 ADP（每頁 25～50 人，最多讀 pages 頁）
+export async function draftAnalysis(pages = 8) {
+  const out = [];
+  for (let i = 0; i < pages; i++) {
+    const rows = web.parseDraftAnalysis(await getDoc(`/b1/draftanalysis?tab=SD&pos=ALL&sort=DA_AP&count=${out.length}`));
+    if (!rows.length) break;
+    out.push(...rows);
+  }
+  return out;
+}
+
 export async function rules(league) {
   return web.parseLeagueRules(await getDoc(`/${league.key}/settings`));
 }
