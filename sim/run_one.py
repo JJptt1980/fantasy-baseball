@@ -10,7 +10,11 @@ PRESETS = {
     'bal_sv': {('P', 'SV'): 1.3},
     'bal_hld_ctl': {('P', 'HLD'): 1.3, ('P', 'BB'): 1.2, ('P', 'WHIP'): 1.1},
 }
-if ps.startswith('raw'):
+import strategies
+if ps in strategies.STRATEGIES:
+    strategies.base(rank)
+    strategies.STRATEGIES[ps][1](rank)
+elif ps.startswith('raw'):
     rank.USE_REPLACEMENT = False
     rank.STREAM_PENALTY = 0.0
     rank.WEIGHTS.clear()
@@ -37,6 +41,6 @@ for slot in range(sim.TEAMS):
             for i in range(3):
                 cat[c][i] += r['cat_rec'][(slot, c)][i]
 t = sim.TEAMS * n
-name = '市場排名' if market else (ps if ps in PRESETS or ps.startswith('raw') else f'投手倍率{ps} SV{sv}')
+name = strategies.STRATEGIES[ps][0] if ps in strategies.STRATEGIES else '市場排名' if market else (ps if ps in PRESETS or ps.startswith('raw') else f'投手倍率{ps} SV{sv}')
 print(f'{name:<16} 奪冠 {champ/t:6.1%}  季後賽 {playoff/t:6.1%}  平均名次 {rs/t:4.1f}')
 print('  ' + ' '.join(f'{c[0]}{c[1]}:{cat[c][0]/max(1,sum(cat[c])):.0%}' for c in sim.CATS))

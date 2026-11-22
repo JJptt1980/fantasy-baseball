@@ -164,6 +164,9 @@ def score(players, weights):
             notes.append(f'OPS 比 2025 進步 {p["OPS"] - p["OPS25"]:+.3f}')
         hurt = (p['side'] == 'B' and min(p['G'], p['G25'] or p['G']) < 110) or \
                (p['side'] == 'P' and p['pos'] == 'SP' and min(p['IP'], p['IP25'] or p['IP']) < 110)
+        if p['age'] and p['age'] >= OLD_AGE and v > 0:
+            v *= 1 - OLD_PENALTY
+            notes.append('年紀偏大')
         if hurt and v > 0:
             v *= 1 - INJURY_PENALTY
             notes.append('近兩季出賽不足')
@@ -185,6 +188,9 @@ def score(players, weights):
 
 PITCHER_SCALE = 1.0  # 投手價值倍率（由模擬器調校）
 USE_REPLACEMENT = False  # 扣守位替補水準在模擬中較差，關掉
+OLD_AGE = 99          # 年齡 ≥ 此值打折（預設不用）
+OLD_PENALTY = 0.0
+KEY_TRANSFORM = None  # 策略用：調整選秀順序 f(p, key, sp_rank) → 新 key
 MAX_REACH = 15  # 最多比市場排名提早幾順位選人（避免白白浪費前段順位）
 
 
@@ -200,6 +206,11 @@ def board(players):
         p['my_rank'] = i
         p['market_rank'] = mrank[p['id']]
         p['key'] = max(i, mrank[p['id']] - MAX_REACH)
+    if KEY_TRANSFORM:
+        sps = sorted((p for p in mine if p['pos'] == 'SP'), key=lambda p: -p['value'])
+        sp_rank = {p['id']: i + 1 for i, p in enumerate(sps)}
+        for p in mine:
+            p['key'] = KEY_TRANSFORM(p, p['key'], sp_rank.get(p['id']))
     return sorted(mine, key=lambda p: (p['key'], -p['value']))
 
 
