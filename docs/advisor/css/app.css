@@ -476,3 +476,6 @@ details.card, .card, #mn-recs { scroll-margin-top: 64px; }
 }
 .toast { width: max-content; }
 .toast-undo { white-space: nowrap; flex: 0 0 auto; }
+/* 提示方框：綠色半透明底 */
+.toast { background: rgba(22, 163, 74, 0.72); color: #fff; }
+.toast-undo { color: #fff !important; font-weight: 800; text-decoration: underline; }
