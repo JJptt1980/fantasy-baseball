@@ -3,6 +3,7 @@ import * as Y from './yahoo-source.js';
 import { rangeStats, toMaps } from './mlb.js';
 import { recommend, recentWindow, weeklyIndex, CAT_LABEL } from './pickup.js';
 import { moveBudget, budgetMessage } from './budget.js';
+import { haptic, toast, swipeRows, skeleton } from './ui-kit.js';
 
 const $ = (s) => document.querySelector(s);
 const LS = { league: 'pk.league', wants: 'pk.wants', picks: 'pk.picks', mode: 'pk.mode', side: 'pk.side' };
@@ -54,6 +55,7 @@ async function loadAll({ keepWeek = false } = {}) {
   st.busy = true;
   try {
     status('讀取 Yahoo 聯盟…');
+    if (!st.result) $('#pk-list').innerHTML = skeleton(6);
     st.leagues = await Y.leagues();
     if (!st.leagues.length) throw new Error('找不到你的 Yahoo 聯盟');
     const latest = Math.max(...st.leagues.map((l) => l.season));
@@ -127,8 +129,16 @@ function handleError(e) {
     $('#pk-login').textContent = '登入 Yahoo';
     status('請按「登入 Yahoo」。登入一次之後 App 會記住。', 'error');
   } else {
-    status(e.message || '讀取失敗', 'error');
+    status(`${e.message || '讀取失敗'}。請確認網路連線後按重試。`, 'error');
+    const b = document.createElement('button');
+    b.type = 'button';
+    b.className = 'btn status-act';
+    b.textContent = '重試';
+    b.onclick = () => loadAll({ keepWeek: true });
+    $('#pk-status').append(b);
   }
+  if (!st.result) $('#pk-list').innerHTML = '';
+  haptic('error');
 }
 
 // ── 計算與畫面 ──
@@ -163,6 +173,15 @@ function renderSummary() {
     ${r.missing.length ? `<div class="sumline muted small">找不到近況數據（最近沒上場或名字對不上）：${esc(r.missing.join('、'))}</div>` : ''}`;
 }
 
+// 一句話理由（依目前的推薦方式換說法）
+function whyLine(why) {
+  if (!why?.length) return '綜合分數高，沒有特別突出的單一類別';
+  const w = why.join('、');
+  if (st.mode === 'fit') return `補你的弱項：${w}`;
+  if (st.mode === 'opp') return `這週對手的 ${w} 跟你差一點，撿他最有機會翻盤`;
+  return `最近 14 天 ${w} 表現突出`;
+}
+
 function renderList() {
   document.querySelectorAll('#pk-mode button').forEach((b) => b.classList.toggle('on', b.dataset.mode === st.mode));
   document.querySelectorAll('#pk-side button').forEach((b) => b.classList.toggle('on', b.dataset.side === st.side));
@@ -181,7 +200,7 @@ function renderList() {
       <div>
         <div class="name">${i + 1}. ${esc(p.name)}<span class="pos">${esc(p.pos)}</span>${x.yahoo?.status ? ` <span class="tag warn">${esc(x.yahoo.status)}</span>` : ''}</div>
         <div class="line">${esc(p.team)}｜${esc(lineOf(p))}</div>
-        <div class="why">${x.why.map((w) => `<span class="tag good">${esc(w)}</span>`).join('')}</div>
+        <div class="why1">${esc(whyLine(x.why))}</div>
         <input class="note" type="text" placeholder="備註／想法（例如：等週三再撿、要換掉誰）" value="${esc(pick.note ?? '')}">
       </div></li>`;
   }).join('') || '<li class="muted small">沒有符合的球員</li>';
@@ -216,6 +235,17 @@ function renderPicked() {
   box.innerHTML = `<h3 class="first">已勾選要撿（${on.length}）</h3>` + picksWarning() +
     on.map(([, v]) => `<div class="sumline">✓ ${esc(v.name)}${v.note ? `<span class="muted">｜${esc(v.note)}</span>` : ''}</div>`).join('') +
     '<button type="button" class="btn" id="pk-clear">清除勾選</button>';
+}
+
+function setPick(li, on, fromSwipe = false) {
+  const was = !!st.picks[li.dataset.id]?.on;
+  savePick(li, { on });
+  li.classList.toggle('checked', on);
+  li.querySelector('input[type=checkbox]').checked = on;
+  renderPicked();
+  const over = st.budget && on && Object.values(st.picks).filter((v) => v.on).length > st.budget.thisWeek;
+  haptic(over ? 'warn' : 'mark');
+  if (fromSwipe && was !== on) toast(`${li.dataset.name}：${on ? '要撿' : '取消'}`, { undo: () => setPick(li, was) });
 }
 
 function savePick(li, patch) {
@@ -253,11 +283,7 @@ export function initPickup() {
   $('#pk-list').addEventListener('change', (e) => {
     const li = e.target.closest('.pk');
     if (!li) return;
-    if (e.target.type === 'checkbox') {
-      savePick(li, { on: e.target.checked });
-      li.classList.toggle('checked', e.target.checked);
-      renderPicked();
-    }
+    if (e.target.type === 'checkbox') setPick(li, e.target.checked);
   });
   $('#pk-list').addEventListener('input', (e) => {
     const li = e.target.closest('.pk');
@@ -265,11 +291,16 @@ export function initPickup() {
   });
   $('#pk-picked').addEventListener('click', (e) => {
     if (e.target.id !== 'pk-clear') return;
+    const saved = st.picks;
     st.picks = {};
     lsSet(LS.picks, st.picks);
     renderList();
     renderPicked();
+    haptic('warn');
+    toast('已清除勾選', { undo: () => { st.picks = saved; lsSet(LS.picks, st.picks); renderList(); renderPicked(); } });
   });
+  // 往右滑＝勾選要撿、往左滑＝取消
+  swipeRows($('#pk-list'), '.pk', { right: (li) => setPick(li, true, true), left: (li) => setPick(li, false, true) });
 
   $('#pk-login').addEventListener('click', () => {
     if (st.loaded) {
@@ -302,5 +333,6 @@ export function initPickup() {
   }
   return {
     onShow() { if (!st.loaded && !st.busy) loadAll(); },
+    refresh: () => loadAll({ keepWeek: true }),
   };
 }

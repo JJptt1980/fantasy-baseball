@@ -5,6 +5,7 @@ import { initPickup } from './pickup-ui.js';
 import { initDemo } from './demo-ui.js';
 import { initLive } from './live-ui.js';
 import { initDraftSync } from './draft-sync-ui.js';
+import { haptic, toast, sheet, closeSheet, swipeRows, pullToRefresh, sparkline, miniBars, skeleton, zPct } from './ui-kit.js';
 
 const $ = (s) => document.querySelector(s);
 const LS = { strat: 'adv.strategies', prefs: 'adv.prefs', notes: 'adv.notes', marks: 'adv.marks', tab: 'adv.tab' };
@@ -32,11 +33,35 @@ function lastSeason() {
   return d.getMonth() >= 10 ? d.getFullYear() : d.getFullYear() - 1;
 }
 
-function setStatus(msg, kind = '') {
+function setStatus(msg, kind = '', retry = null) {
   const el = $('#status');
   el.hidden = !msg;
   el.className = `status ${kind}`;
   el.textContent = msg || '';
+  if (retry) {
+    const b = document.createElement('button');
+    b.type = 'button';
+    b.className = 'btn status-act';
+    b.textContent = '重試';
+    b.onclick = retry;
+    el.append(b);
+  }
+}
+
+// ── 一句話理由：最強的 1~2 個類別＋加分／風險 ──
+const NICE = {
+  'B:R': '得分', 'B:H': '安打', 'B:HR': '全壘打', 'B:RBI': '打點', 'B:SB': '盜壘', 'B:BB': '保送', 'B:K': '少三振', 'B:AVG': '打擊率', 'B:OPS': 'OPS',
+  'P:W': '勝投', 'P:L': '少敗投', 'P:SV': '救援', 'P:BB': '少保送', 'P:K': '三振', 'P:HLD': '中繼', 'P:ERA': 'ERA', 'P:WHIP': 'WHIP', 'P:QS': '優質先發',
+};
+const topPct = (z) => Math.max(1, Math.round((1 - zPct(z)) * 100));
+function reasonOf(p) {
+  const top = Object.entries(p.z ?? {}).filter(([, z]) => z > 0.5).sort((a, b) => b[1] - a[1]).slice(0, 2);
+  let t = top.length ? top.map(([c, z]) => `${NICE[c]}前 ${topPct(z)}%`).join('、') : '各類別都在平均附近，沒有明顯強項';
+  const plus = p.notes.find((n) => /上升|進步/.test(n));
+  const risk = p.notes.find((n) => /不足|避開|偏大|保送/.test(n));
+  if (plus) t += `，${plus}`;
+  if (risk) t += `；注意：${risk}`;
+  return t;
 }
 
 // ── 選秀方向（打勾） ──
@@ -102,7 +127,7 @@ function renderBoard() {
       <div>
         <div class="name">${esc(p.name)}<span class="pos">${esc(p.pos)}</span></div>
         <div class="line">${esc(p.team)}・${p.age} 歲｜${esc(statLine(p))}</div>
-        ${p.notes.length ? `<div class="note">${esc(p.notes.join('、'))}</div>` : ''}
+        <div class="why1">${esc(reasonOf(p))}</div>
       </div>
       <div class="acts">
         <button type="button" class="b-mine" data-act="mine" aria-label="我選了">我選</button>
@@ -112,7 +137,78 @@ function renderBoard() {
   $('#board').innerHTML = rows.join('') || '<li class="muted">沒有符合的球員</li>';
   const mine = Object.values(state.marks).filter((m) => m === 'mine').length;
   const taken = Object.values(state.marks).filter((m) => m === 'taken').length;
-  $('#board-meta').textContent = `依 ${state.season} 季（含 ${state.season - 1} 季判斷傷病）MLB 官方數據｜我選了 ${mine} 人、被選走 ${taken} 人｜「市」＝市場排名`;
+  $('#board-meta').textContent = `依 ${state.season} 季（含 ${state.season - 1} 季判斷傷病）MLB 官方數據｜我選了 ${mine} 人、被選走 ${taken} 人｜「市」＝市場排名｜往右滑＝我選、往左滑＝被選，點一下看詳情`;
+}
+
+// ── 標記（震動＋可復原） ──
+function saveMarks() { lsSet(LS.marks, state.marks); renderBoard(); }
+function setMark(id, act) {
+  const prev = state.marks[id];
+  if (prev === act) delete state.marks[id];
+  else state.marks[id] = act;
+  saveMarks();
+  haptic('mark');
+  const p = state.ranked.find((x) => String(x.id) === String(id));
+  const now = state.marks[id];
+  toast(`${p?.name ?? ''}：${now === 'mine' ? '我選了' : now === 'taken' ? '被選走' : '取消標記'}`, {
+    undo: () => { if (prev) state.marks[id] = prev; else delete state.marks[id]; saveMarks(); },
+  });
+}
+
+// ── 球員詳情卡 ──
+let weeklyP = null;
+const weeklyData = () => (weeklyP ??= fetch(`data/weekly-${state.season}.json`).then((r) => (r.ok ? r.json() : null)).catch(() => null));
+function trendOf(p, wk) {
+  const rec = wk?.players?.[`${p.side}${p.id}`];
+  if (!rec) return null;
+  const col = (cols, name) => cols.indexOf(name);
+  if (p.side === 'B') {
+    const iO = col(wk.hitCols, 'OPSx1000');
+    const iP = col(wk.hitCols, 'PA');
+    return { label: '每週 OPS', vals: rec.w.map((w) => (Array.isArray(w) && w[iP] >= 8 ? w[iO] / 1000 : null)), fmt: (v) => v.toFixed(3).replace(/^0/, '') };
+  }
+  if (p.pos === 'SP') {
+    const iK = col(wk.pitCols, 'K');
+    return { label: '每週三振', vals: rec.w.map((w) => (Array.isArray(w) ? w[iK] : null)), fmt: (v) => String(v) };
+  }
+  const iS = col(wk.pitCols, 'SV');
+  const iH = col(wk.pitCols, 'HLD');
+  return { label: '每週 SV＋HLD', vals: rec.w.map((w) => (Array.isArray(w) ? w[iS] + w[iH] : null)), fmt: (v) => String(v) };
+}
+function openPlayer(id) {
+  const p = state.ranked.find((x) => String(x.id) === String(id));
+  if (!p) return;
+  haptic('tap');
+  const mark = state.marks[p.id];
+  const bars = miniBars(Object.entries(p.z ?? {}).map(([c, z]) => {
+    const pct = zPct(z);
+    return { label: NICE[c], pct, text: `前 ${topPct(z)}%`, cls: pct >= 0.8 ? 'good' : pct <= 0.3 ? 'bad' : '' };
+  }));
+  const box = sheet(`
+    <div class="sh-head"><div><div class="sh-name">${esc(p.name)}<span class="pos">${esc(p.pos)}</span></div><div class="muted small">${esc(p.team)}・${p.age} 歲</div></div><button type="button" class="sh-x" data-close aria-label="關閉">✕</button></div>
+    <div class="kpis"><div><b>${p.rank}</b><span>選秀表</span></div><div><b>${p.round}</b><span>建議輪次</span></div><div><b>${p.marketRank}</b><span>市場排名</span></div></div>
+    <p class="why1 lead">${esc(reasonOf(p))}</p>
+    <h3>各類別在聯盟的位置（${state.season} 季）</h3>${bars}
+    <h3 id="sh-trend-t">${state.season} 逐週走勢</h3><div id="sh-trend" class="muted small">讀取中…</div>
+    <div class="line small muted" style="margin-top:10px">${esc(statLine(p))}</div>
+    ${p.notes.length ? `<div class="note">${esc(p.notes.join('、'))}</div>` : ''}
+    <div class="sh-acts"><button type="button" class="btn primary" data-sh="mine">${mark === 'mine' ? '取消「我選」' : '我選了'}</button><button type="button" class="btn" data-sh="taken">${mark === 'taken' ? '取消「被選」' : '被選走'}</button></div>`);
+  box.addEventListener('click', (e) => {
+    const a = e.target.closest('[data-sh]')?.dataset.sh;
+    if (a) { closeSheet(); setMark(p.id, a); }
+  });
+  weeklyData().then((wk) => {
+    const el = document.getElementById('sh-trend');
+    if (!el) return;
+    const t = trendOf(p, wk);
+    if (!t) { el.textContent = '沒有逐週資料'; return; }
+    const got = t.vals.filter((v) => v != null);
+    const recent = got.slice(-4);
+    const avg = (a) => a.reduce((x, y) => x + y, 0) / (a.length || 1);
+    document.getElementById('sh-trend-t').textContent = `${state.season} ${t.label}`;
+    el.className = 'trend';
+    el.innerHTML = `${sparkline(t.vals, { w: 240, h: 44, label: t.label })}<div class="muted small">全季平均 ${t.fmt(Math.round(avg(got) * 1000) / 1000)}｜最後 4 週 ${t.fmt(Math.round(avg(recent) * 1000) / 1000)}</div>`;
+  });
 }
 
 // ── 事件 ──
@@ -151,21 +247,24 @@ function bind() {
   $('#clear-marks').addEventListener('click', (e) => {
     e.preventDefault();
     const n = Object.keys(state.marks).length;
-    if (!n || !confirm(`清除選秀表上全部 ${n} 個「我選／被選」標記？`)) return;
+    if (!n) { toast('沒有標記可以清除'); return; }
+    const saved = { ...state.marks };
     state.marks = {};
-    lsSet(LS.marks, state.marks);
-    renderBoard();
+    saveMarks();
+    haptic('warn');
+    toast(`已清除 ${n} 個標記`, { undo: () => { state.marks = saved; saveMarks(); }, ms: 6000 });
   });
 
   $('#board').addEventListener('click', (e) => {
+    const row = e.target.closest('.row');
+    if (!row) return;
     const btn = e.target.closest('button[data-act]');
-    if (!btn) return;
-    const id = btn.closest('.row').dataset.id;
-    const act = btn.dataset.act;
-    if (state.marks[id] === act) delete state.marks[id];
-    else state.marks[id] = act;
-    lsSet(LS.marks, state.marks);
-    renderBoard();
+    if (btn) { setMark(row.dataset.id, btn.dataset.act); return; }
+    if (!row.dataset.justSwiped) openPlayer(row.dataset.id);
+  });
+  swipeRows($('#board'), '.row', {
+    right: (row) => setMark(row.dataset.id, 'mine'),
+    left: (row) => setMark(row.dataset.id, 'taken'),
   });
 }
 
@@ -198,6 +297,7 @@ function watchTitle(tab) {
 
 // 今天：依季節顯示最重要的事
 function renderToday() {
+  if (!state.players) { $('#today').innerHTML = '<div class="today-card sk-card"><i></i><b></b><b></b></div><div class="today-card sk-card"><i></i><b></b></div>'; return; }
   const m = new Date().getMonth() + 1;
   const next = state.ranked.filter((p) => !state.marks[p.id]).slice(0, 3);
   const strat = $('#strategy-summary')?.textContent.replace(/^：/, '') ?? '';
@@ -222,6 +322,7 @@ function renderToday() {
 async function load() {
   state.season = lastSeason();
   setStatus(`讀取 ${state.season} 與 ${state.season - 1} 季 MLB 數據中…（第一次比較久）`);
+  if (!state.players) $('#board').innerHTML = skeleton(8);
   try {
     const [cur, prev] = await Promise.all([seasonStats(state.season), seasonStats(state.season - 1)]);
     state.players = buildPlayers(toMaps(cur), toMaps(prev));
@@ -229,7 +330,9 @@ async function load() {
     recompute();
   } catch (e) {
     console.error(e);
-    setStatus(`${e.message || '讀取失敗'}，請確認網路後重開`, 'error');
+    haptic('error');
+    $('#board').innerHTML = '';
+    setStatus(`${e.message || '讀取失敗'}。請確認網路連線後按重試。`, 'error', () => load());
   }
 }
 
@@ -252,4 +355,8 @@ initDraftSync({
 live = initLive({ getBoard: () => state.ranked, weeklyUrl: `data/weekly-${lastSeason()}.json` });
 initDemo({ getBoard: () => state.ranked, getConfig: () => buildConfig(state.selected, state.prefs), getSeason: () => state.season, getSelection: () => ({ selected: [...state.selected], prefs: [...state.prefs] }) });
 showTab(lsGet(LS.tab, 'today'));
+// 下拉更新：今天＝重讀 MLB 數據；撿人＝重抓 Yahoo；即時＝重算比分
+pullToRefresh($('#tab-today'), async () => { await load(); });
+pullToRefresh($('#tab-pickup'), () => pickup?.refresh?.());
+pullToRefresh($('#tab-live'), () => live?.refresh?.());
 load();

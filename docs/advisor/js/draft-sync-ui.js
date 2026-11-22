@@ -1,6 +1,7 @@
 // 選秀頁「🔄 選秀即時同步」：自動標我選／被選、還差幾順位、前 3 推薦、預測下一輪、快輪到時震動
 import * as Y from './yahoo-source.js';
 import { yahooSource, replaySource, nextDelay, RateLimited } from './draft-source.js';
+import { haptic } from './ui-kit.js';
 import { draftState, recommend, predictAvailable, openSlots, TEAMS, ROUNDS } from './draft-sync.js';
 
 const $ = (s) => document.querySelector(s);
@@ -21,7 +22,6 @@ function status(msg, kind = '') {
   el.textContent = msg || '';
 }
 
-const vibrate = (pattern) => { try { navigator.vibrate?.(pattern); } catch { /* 不支援就算了 */ } };
 const hhmmss = (t) => new Date(t).toTimeString().slice(0, 8);
 
 // ── 資料來源 ──
@@ -94,6 +94,7 @@ function stop() {
   clearTimeout(st.timer);
   st.running = false;
   if (st.savedMarks) { st.setMarks(st.savedMarks); st.savedMarks = null; }
+  if ($('#ds-focus') && !$('#ds-focus').hidden) openFocus(false);
   renderButtons();
 }
 
@@ -144,12 +145,57 @@ function update(picks) {
     const key = `${s.myNext}:${s.picksUntil === 0 ? 'now' : 'soon'}`;
     if (s.picksUntil <= 2 && !st.buzzed.has(key)) {
       st.buzzed.add(key);
-      vibrate(s.picksUntil === 0 ? [500, 200, 500, 200, 500] : [200, 120, 200]);
+      haptic(s.picksUntil === 0 ? 'now' : 'soon');
     }
   }
+  if (s.done && !st.buzzed.has('done')) { st.buzzed.add('done'); haptic('success'); }
   st.ctx = { s, recs, atMine, board };
   render();
+  renderFocus();
   return s.picksUntil;
+}
+
+// ── 選秀專注模式：全螢幕只顯示「還差幾順位＋前 3 推薦＋剛剛誰被選」 ──
+function renderFocus() {
+  const box = $('#ds-focus');
+  if (!box || box.hidden || !st.ctx) return;
+  const { s, recs } = st.ctx;
+  const now = s.picksUntil === 0;
+  const big = s.done ? '✅' : s.picksUntil == null ? '?' : now ? '輪到你' : s.picksUntil;
+  const sub = s.done ? '選秀結束' : s.picksUntil == null ? '還不知道你的順位' : now ? `總第 ${s.myNext} 位` : `順位後輪到你（總第 ${s.myNext} 位）`;
+  const last = s.made.slice(-3).reverse();
+  box.innerHTML = `
+    <div class="fc-top"><span class="muted small">第 ${s.done ? ROUNDS : Math.ceil(s.nextOverall / TEAMS)} 輪｜已選 ${s.made.length}/${TEAMS * ROUNDS}</span><button type="button" class="btn" id="ds-focus-close">離開</button></div>
+    <div class="fc-hero ${now ? 'now' : ''}"><div class="fc-n">${big}</div><div class="fc-s">${esc(sub)}</div></div>
+    ${now ? '<button type="button" class="btn primary fc-room" id="ds-room">打開 Yahoo 選秀室</button>' : ''}
+    ${recs.length ? `<h3>推薦</h3>${recs.map((r, i) => `<div class="fc-rec"><div class="fc-i">${i + 1}</div><div><div class="fc-name">${esc(r.p.name)} <span class="pos">${esc(r.p.pos)}</span></div><div class="muted small">${r.reasons.map(esc).join('、')}</div></div></div>`).join('')}` : ''}
+    ${last.length ? `<h3>剛剛被選</h3>${last.map((m) => `<div class="sumline small">${m.overall}. ${esc(m.player?.name ?? m.name)}<span class="muted">｜${esc(m.team ?? '')}</span></div>`).join('')}` : ''}`;
+}
+function openFocus(on) {
+  let box = $('#ds-focus');
+  if (!box) {
+    box = document.createElement('div');
+    box.id = 'ds-focus';
+    box.className = 'focus-mode';
+    box.hidden = true;
+    document.body.appendChild(box);
+    box.addEventListener('click', (e) => {
+      if (e.target.id === 'ds-focus-close') openFocus(false);
+      if (e.target.id === 'ds-room') openRoom();
+    });
+  }
+  box.hidden = !on;
+  document.body.classList.toggle('no-scroll', on);
+  haptic('tap');
+  // 專注模式時螢幕不要自動關掉（支援的瀏覽器才有）
+  if (on) navigator.wakeLock?.request('screen').then((l) => { st.wake = l; }).catch(() => {});
+  else { st.wake?.release?.(); st.wake = null; }
+  renderFocus();
+}
+function openRoom() {
+  // 開 Yahoo 聯盟首頁（選秀進行中上面有「進入選秀室」）；App 會交給 Yahoo App 或瀏覽器開
+  const url = st.league ? `https://baseball.fantasysports.yahoo.com/${st.league.key}` : 'https://baseball.fantasysports.yahoo.com/';
+  window.location.href = url;
 }
 
 // ── 畫面 ──
@@ -197,6 +243,7 @@ function render() {
       ${st.practiceLog.map((x) => `<div class="sumline small">第 ${x.round} 輪：你選 <b>${esc(x.picked)}</b>｜App 推薦 ${x.recs.map(esc).join('、') || '—'}${x.recs.includes(x.picked) ? ' ✅' : ''}</div>`).join('')}</details>` : '';
 
   panel.innerHTML = `${banner}
+    ${s.done ? '' : '<button type="button" class="btn" id="ds-focus-open">⛶ 專注模式（全螢幕只看重點）</button>'}
     ${st.source?.kind === 'replay' ? '<div class="muted small">練習中：選秀表上的標記是暫時的，按「停止」會還原。</div>' : ''}
     <div class="sumline muted small">已選 ${s.made.length}/${TEAMS * ROUNDS}｜第 ${curRound} 輪｜你是第 ${s.slot ?? '?'} 順位｜你已選 ${s.mine.length} 人</div>
     <div class="sumline">${open.length ? `還缺：<b>${esc(missing)}</b>` : '先發格子都有人了'}${s.mine.length ? `<span class="muted small">｜${s.mine.map((p) => esc(p.name)).join('、')}</span>` : ''}</div>
@@ -224,10 +271,8 @@ export function initDraftSync({ getBoard, applyMarks, getMarks, setMarks }) {
     renderButtons();
   });
   $('#ds-panel').addEventListener('click', (e) => {
-    if (e.target.id !== 'ds-room') return;
-    // 開 Yahoo 聯盟首頁（選秀進行中上面有「進入選秀室」）；App 會交給 Yahoo App 或瀏覽器開
-    const url = st.league ? `https://baseball.fantasysports.yahoo.com/${st.league.key}` : 'https://baseball.fantasysports.yahoo.com/';
-    window.location.href = url;
+    if (e.target.id === 'ds-focus-open') openFocus(true);
+    if (e.target.id === 'ds-room') openRoom();
   });
   setInterval(() => { if (st.running) renderMeta(); }, 1000);
 }

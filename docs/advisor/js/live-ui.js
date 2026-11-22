@@ -3,6 +3,13 @@ import * as Y from './yahoo-source.js';
 import { seasonStats, toMaps } from './mlb.js';
 import { CAT_LABEL } from './pickup.js';
 import { track, resolveRoster, gameStatus, addDays } from './live.js';
+import { haptic } from './ui-kit.js';
+const LOWER = new Set(['B:K', 'P:L', 'P:BB', 'P:ERA', 'P:WHIP']);
+// 我方占比（0~1）：越小越好的類別反過來算；都沒有數字就算 0.5
+function share(cat, me, opp) {
+  if (!Number.isFinite(me) || !Number.isFinite(opp) || me + opp <= 0) return 0.5;
+  return LOWER.has(cat) ? opp / (me + opp) : me / (me + opp);
+}
 
 const $ = (s) => document.querySelector(s);
 const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
@@ -104,6 +111,7 @@ async function refresh() {
     scheduleAuto(res);
   } catch (e) {
     console.error(e);
+    haptic('error');
     status(e instanceof Y.LoginNeeded ? '請先到「撿人」頁登入 Yahoo。' : (e.message || '讀取失敗'), 'error');
   } finally {
     st.busy = false;
@@ -130,15 +138,19 @@ function render(res, ctx) {
     </div>`;
 
   $('#lv-cats').hidden = false;
-  $('#lv-cats').innerHTML = `<table class="tbl lv"><thead><tr><th>類別</th><th class="v">我</th><th class="v">對手</th><th class="c">目前</th><th class="v">預估</th><th>週末</th></tr></thead><tbody>
-    ${res.cats.map((c) => `<tr>
-      <td>${esc(CAT_LABEL[c.cat])}</td>
-      <td class="v">${fmtVal(c.cat, c.me)}</td><td class="v">${fmtVal(c.cat, c.opp)}</td>
-      <td class="c"><span class="pill ${c.now}">${verdictTxt[c.now]}</span></td>
-      <td class="v small">${fmtVal(c.cat, c.meProj)}／${fmtVal(c.cat, c.oppProj)}</td>
-      <td><span class="tag ${probCls(c.prob)}">${probTxt(c.prob)} ${Math.round(c.prob * 100)}%</span></td></tr>`).join('')}
-    </tbody></table>
-    <p class="muted small">「目前」＝本週至今（含今天已打完的部分）；「預估」＝再加上剩餘比賽 × 最近 14 天表現。只算先發格子的球員。</p>`;
+  // 18 類別：每類一條「我 vs 對手」迷你長條（紫色＝我的占比），右邊是週末勝率
+  $('#lv-cats').innerHTML = `<div class="lvc-head"><span>左：我</span><span>長條＝本週至今我方占比（中線＝五五波）</span><span>右：對手</span></div>
+    ${res.cats.map((c) => {
+      const sh = share(c.cat, c.me, c.opp);
+      return `<div class="lvc ${c.now}">
+      <span class="lvc-l">${esc(CAT_LABEL[c.cat])}</span>
+      <span class="lvc-v me">${fmtVal(c.cat, c.me)}</span>
+      <span class="lvc-bar" role="img" aria-label="${verdictTxt[c.now]}"><i style="width:${Math.round(sh * 100)}%"></i></span>
+      <span class="lvc-v op">${fmtVal(c.cat, c.opp)}</span>
+      <span class="tag ${probCls(c.prob)}">週末${probTxt(c.prob)} ${Math.round(c.prob * 100)}%</span>
+      <span class="lvc-p">預估 ${fmtVal(c.cat, c.meProj)}／${fmtVal(c.cat, c.oppProj)}</span></div>`;
+    }).join('')}
+    <p class="muted small">長條顏色：綠＝目前領先、紅＝落後、橘＝平手（ERA、WHIP、K、BB、L 越低越好，已反過來算）；「預估」＝再加上剩餘比賽 × 最近 14 天表現。只算先發格子的球員。</p>`;
 
   const row = (p) => {
     const g = p.today.game;
@@ -220,5 +232,5 @@ export function initLive({ getBoard, weeklyUrl }) {
   $('#lv-week').addEventListener('change', (e) => { st.week = Number(e.target.value); st.day = null; stopPlay(); renderDays(); refresh(); });
   $('#lv-days').addEventListener('click', (e) => { const d = e.target.closest('.chip')?.dataset.day; if (d) { stopPlay(); st.day = d; renderDays(); refresh(); } });
   $('#lv-play').addEventListener('click', playWeek);
-  return { onShow: ensure };
+  return { onShow: ensure, refresh: () => refresh() };
 }
