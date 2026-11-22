@@ -77,6 +77,8 @@ async function start() {
         st.myTeam = '示範：我的隊';
       }
       st.source = replaySource(picks, { secondsPerPick: speed });
+      // 練習不能弄髒正式的選秀表：先存下原本的標記，停止時還原
+      st.savedMarks = JSON.parse(JSON.stringify(st.getMarks()));
     }
     st.running = true;
     renderButtons();
@@ -91,6 +93,7 @@ async function start() {
 function stop() {
   clearTimeout(st.timer);
   st.running = false;
+  if (st.savedMarks) { st.setMarks(st.savedMarks); st.savedMarks = null; }
   renderButtons();
 }
 
@@ -194,15 +197,18 @@ function render() {
       ${st.practiceLog.map((x) => `<div class="sumline small">第 ${x.round} 輪：你選 <b>${esc(x.picked)}</b>｜App 推薦 ${x.recs.map(esc).join('、') || '—'}${x.recs.includes(x.picked) ? ' ✅' : ''}</div>`).join('')}</details>` : '';
 
   panel.innerHTML = `${banner}
+    ${st.source?.kind === 'replay' ? '<div class="muted small">練習中：選秀表上的標記是暫時的，按「停止」會還原。</div>' : ''}
     <div class="sumline muted small">已選 ${s.made.length}/${TEAMS * ROUNDS}｜第 ${curRound} 輪｜你是第 ${s.slot ?? '?'} 順位｜你已選 ${s.mine.length} 人</div>
     <div class="sumline">${open.length ? `還缺：<b>${esc(missing)}</b>` : '先發格子都有人了'}${s.mine.length ? `<span class="muted small">｜${s.mine.map((p) => esc(p.name)).join('、')}</span>` : ''}</div>
     ${recHtml}${predHtml}${logHtml}
     ${s.unmatched.length ? `<div class="muted small">對不到選秀表的球員（多半是冷門或新人）：${s.unmatched.slice(-5).map(esc).join('、')}</div>` : ''}`;
 }
 
-export function initDraftSync({ getBoard, applyMarks }) {
+export function initDraftSync({ getBoard, applyMarks, getMarks, setMarks }) {
   st.getBoard = getBoard;
   st.applyMarks = applyMarks;
+  st.getMarks = getMarks;
+  st.setMarks = setMarks;
   $('#ds-slot').innerHTML = '<option value="">自動偵測</option>' + Array.from({ length: TEAMS }, (_, i) => `<option value="${i + 1}">第 ${i + 1} 順位</option>`).join('');
   $('#ds-slot').value = String(lsGet(LS.slot, ''));
   $('#ds-mode').value = lsGet(LS.mode, 'replay');

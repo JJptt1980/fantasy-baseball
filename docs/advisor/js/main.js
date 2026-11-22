@@ -139,6 +139,14 @@ function bind() {
   $('#search').addEventListener('input', renderBoard);
   $('#filter-pos').addEventListener('change', renderBoard);
   $('#hide-taken').addEventListener('change', renderBoard);
+  $('#clear-marks').addEventListener('click', (e) => {
+    e.preventDefault();
+    const n = Object.keys(state.marks).length;
+    if (!n || !confirm(`清除選秀表上全部 ${n} 個「我選／被選」標記？`)) return;
+    state.marks = {};
+    lsSet(LS.marks, state.marks);
+    renderBoard();
+  });
 
   $('#board').addEventListener('click', (e) => {
     const btn = e.target.closest('button[data-act]');
@@ -190,6 +198,8 @@ initDraftSync({
     for (const [id, v] of Object.entries(marks)) if (state.marks[id] !== v) { state.marks[id] = v; changed = true; }
     if (changed) { lsSet(LS.marks, state.marks); renderBoard(); }
   },
+  getMarks: () => state.marks,
+  setMarks: (m) => { state.marks = m; lsSet(LS.marks, m); renderBoard(); },
 });
 live = initLive({ getBoard: () => state.ranked, weeklyUrl: `data/weekly-${lastSeason()}.json` });
 initDemo({ getBoard: () => state.ranked, getConfig: () => buildConfig(state.selected, state.prefs), getSeason: () => state.season, getSelection: () => ({ selected: [...state.selected], prefs: [...state.prefs] }) });

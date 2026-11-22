@@ -34,7 +34,7 @@ public class MainActivity extends Activity {
                 .build();
 
         web = new WebView(this);
-        web.setBackgroundColor(Color.parseColor("#0b1220"));
+        web.setBackgroundColor(bgColor());
         WebSettings s = web.getSettings();
         s.setJavaScriptEnabled(true);
         s.setDomStorageEnabled(true);
@@ -63,7 +63,7 @@ public class MainActivity extends Activity {
 
         // 避開狀態列與手勢列（WebView 自己的 padding 不會推動網頁內容，要包一層容器）
         android.widget.FrameLayout root = new android.widget.FrameLayout(this);
-        root.setBackgroundColor(Color.parseColor("#0b1220"));
+        root.setBackgroundColor(bgColor());
         root.addView(web);
         root.setOnApplyWindowInsetsListener((v, insets) -> {
             android.graphics.Insets bars = insets.getInsets(WindowInsets.Type.systemBars() | WindowInsets.Type.ime());
@@ -71,10 +71,26 @@ public class MainActivity extends Activity {
             return WindowInsets.CONSUMED;
         });
 
-        getWindow().getDecorView().setBackgroundColor(Color.parseColor("#0b1220"));
+        getWindow().getDecorView().setBackgroundColor(bgColor());
+        // 淺色模式：狀態列、導覽列圖示改成深色
+        if (!isNight() && getWindow().getInsetsController() != null) {
+            getWindow().getInsetsController().setSystemBarsAppearance(
+                    android.view.WindowInsetsController.APPEARANCE_LIGHT_STATUS_BARS | android.view.WindowInsetsController.APPEARANCE_LIGHT_NAVIGATION_BARS,
+                    android.view.WindowInsetsController.APPEARANCE_LIGHT_STATUS_BARS | android.view.WindowInsetsController.APPEARANCE_LIGHT_NAVIGATION_BARS);
+        }
         setContentView(root);
         if (savedInstanceState != null) web.restoreState(savedInstanceState);
         else web.loadUrl(START);
+    }
+
+    // 跟隨系統深淺色（要跟網頁 CSS 的 --bg 一致）
+    private boolean isNight() {
+        int m = getResources().getConfiguration().uiMode & android.content.res.Configuration.UI_MODE_NIGHT_MASK;
+        return m != android.content.res.Configuration.UI_MODE_NIGHT_NO;
+    }
+
+    private int bgColor() {
+        return Color.parseColor(isNight() ? "#0e0b14" : "#f4f2f8");
     }
 
     @Override

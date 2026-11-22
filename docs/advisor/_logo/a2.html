@@ -1,0 +1,48 @@
+<!doctype html>
+<html lang="zh-Hant-TW"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>A2 Yahoo 配色</title>
+<style>
+  body { margin: 0; background: #e9ebf0; font-family: -apple-system, "PingFang TC", "Noto Sans TC", sans-serif; color: #111; }
+  .grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 26px; padding: 26px; }
+  .it { text-align: center; }
+  .it svg { width: 100%; max-width: 200px; border-radius: 22.5%; box-shadow: 0 6px 16px rgba(0,0,0,.18); }
+  .it b { display: block; margin-top: 8px; font-size: 15px; }
+  .it span { font-size: 12px; color: #555; }
+  .row2 { display: flex; gap: 18px; justify-content: center; padding: 0 26px 26px; align-items: center; }
+  .row2 svg { width: 60px; border-radius: 22.5%; }
+  .row2 .d { background: #0b1220; padding: 10px 14px; border-radius: 12px; display: flex; gap: 18px; }
+</style></head>
+<body>
+<div class="grid">
+
+<!-- Y1：Yahoo 亮紫漸層 -->
+<div class="it"><svg id="y1" viewBox="0 0 1024 1024"><defs><linearGradient id="g1" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#7E1FFF"/><stop offset="1" stop-color="#6001D2"/></linearGradient></defs>
+<rect width="1024" height="1024" fill="url(#g1)"/>
+<path d="M512 210 L814 512 L512 814 L210 512 Z" fill="#ffffff" opacity=".14"/>
+<path d="M512 210 L814 512 L512 814 L210 512 Z" fill="none" stroke="#fff" stroke-width="30" stroke-linejoin="round"/>
+<polyline points="330,620 450,540 560,575 700,400" fill="none" stroke="#fff" stroke-width="46" stroke-linecap="round" stroke-linejoin="round"/>
+<circle cx="700" cy="400" r="40" fill="#11D3CD" stroke="#fff" stroke-width="18"/>
+</svg><b>Y1 Yahoo 亮紫</b><span>#7E1FFF → #6001D2，青綠亮點</span></div>
+
+<!-- Y2：深紫＋淡紫線 -->
+<div class="it"><svg id="y2" viewBox="0 0 1024 1024"><defs><linearGradient id="g2" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#6001D2"/><stop offset="1" stop-color="#39007D"/></linearGradient></defs>
+<rect width="1024" height="1024" fill="url(#g2)"/>
+<path d="M512 210 L814 512 L512 814 L210 512 Z" fill="#907CFF" opacity=".18"/>
+<path d="M512 210 L814 512 L512 814 L210 512 Z" fill="none" stroke="#C9BEFF" stroke-width="30" stroke-linejoin="round"/>
+<polyline points="330,620 450,540 560,575 700,400" fill="none" stroke="#fff" stroke-width="46" stroke-linecap="round" stroke-linejoin="round"/>
+<circle cx="700" cy="400" r="40" fill="#FFA700" stroke="#fff" stroke-width="18"/>
+</svg><b>Y2 深葡萄紫</b><span>#6001D2 → #39007D，橘色亮點</span></div>
+
+<!-- Y3：白底紫線 -->
+<div class="it"><svg id="y3" viewBox="0 0 1024 1024"><rect width="1024" height="1024" fill="#ffffff"/>
+<path d="M512 210 L814 512 L512 814 L210 512 Z" fill="#7E1FFF" opacity=".10"/>
+<path d="M512 210 L814 512 L512 814 L210 512 Z" fill="none" stroke="#6001D2" stroke-width="30" stroke-linejoin="round"/>
+<polyline points="330,620 450,540 560,575 700,400" fill="none" stroke="#7E1FFF" stroke-width="46" stroke-linecap="round" stroke-linejoin="round"/>
+<circle cx="700" cy="400" r="40" fill="#11D3CD" stroke="#fff" stroke-width="18"/>
+</svg><b>Y3 白底紫線</b><span>白底、葡萄紫線條</span></div>
+
+</div>
+<div class="row2"><span>手機桌面實際大小：</span>
+  <div class="d"><svg viewBox="0 0 1024 1024"><use href="#y1"/></svg><svg viewBox="0 0 1024 1024"><use href="#y2"/></svg><svg viewBox="0 0 1024 1024"><use href="#y3"/></svg></div>
+</div>
+</body></html>

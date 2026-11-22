@@ -3,8 +3,9 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-  <meta name="theme-color" content="#0b1220">
-  <meta name="color-scheme" content="dark">
+  <meta name="theme-color" content="#0e0b14" media="(prefers-color-scheme: dark)">
+  <meta name="theme-color" content="#f4f2f8" media="(prefers-color-scheme: light)">
+  <meta name="color-scheme" content="dark light">
   <title>選秀大師</title>
   <link rel="icon" href="../icons/icon-192.png" type="image/png">
   <link rel="stylesheet" href="css/app.css">
@@ -60,7 +61,7 @@
           <option value="3B">3B</option><option value="SS">SS</option><option value="OF">OF</option>
           <option value="DH">DH</option><option value="SP">SP</option><option value="RP">RP</option>
         </select>
-        <label class="inline"><input id="hide-taken" type="checkbox"> 隱藏已選走</label>
+        <label class="inline"><input id="hide-taken" type="checkbox"> 隱藏已選走 <button type="button" class="btn" id="clear-marks" style="margin-left:auto">清除標記</button></label>
       </div>
       <div id="status" class="status" hidden></div>
       <p class="muted small" id="board-meta"></p>
