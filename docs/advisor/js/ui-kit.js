@@ -33,6 +33,12 @@ export function toast(msg, { undo, ms = 6000 } = {}) {
   const hide = () => el.classList.remove('show');
   toastTimer = setTimeout(hide, ms);
   if (undo) el.querySelector('.toast-undo').onclick = () => { hide(); haptic('undo'); undo(); };
+  // 點畫面其他地方 → 收起來（不要擋到下一個要按的東西）
+  setTimeout(() => document.addEventListener('pointerdown', function off(e) {
+    if (el.contains(e.target)) return;
+    hide();
+    document.removeEventListener('pointerdown', off, true);
+  }, true), 0);
 }
 
 // ── 底部詳情卡（點背景或往下拉關閉） ──

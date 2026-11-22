@@ -221,7 +221,7 @@ export function initLive({ getBoard, weeklyUrl }) {
     loaded = true;
     try {
       st.weekly = await (await fetch(weeklyUrl)).json();
-      $('#lv-week').innerHTML = st.weekly.weeks.map((w, i) => `<option value="${i + 1}">第 ${i + 1} 週（${w.start.slice(5)}～${w.end.slice(5)}）</option>`).join('');
+      $('#lv-week').innerHTML = st.weekly.weeks.map((w, i) => `<option value="${i + 1}">第 ${i + 1} 週 ${w.start.slice(5).replace('-', '/')}</option>`).join('');
       $('#lv-week').value = String(st.week);
     } catch { $('#lv-mode [data-mode=replay]').disabled = true; }
     // 休賽季直接進重播

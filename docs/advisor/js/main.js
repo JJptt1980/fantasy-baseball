@@ -186,6 +186,11 @@ function bind() {
     recompute();
   });
 
+  // 選秀方向：預設收合，記住上次開或關
+  const sb = $('#strategy-box');
+  sb.open = lsGet('adv.stratOpen', false);
+  sb.addEventListener('toggle', () => lsSet('adv.stratOpen', sb.open));
+
   const notes = $('#my-notes');
   notes.value = lsGet(LS.notes, '');
   notes.addEventListener('input', () => lsSet(LS.notes, notes.value));
@@ -240,7 +245,10 @@ function watchTitle(tab) {
   titleObs?.disconnect();
   const t = $(`#tab-${tab} .large-title`);
   if (!t || !('IntersectionObserver' in window)) return;
-  titleObs = new IntersectionObserver(([e]) => $('.topbar').classList.toggle('scrolled', !e.isIntersecting), { rootMargin: '-44px 0px 0px 0px' });
+  titleObs = new IntersectionObserver(([e]) => {
+    $('.topbar').classList.toggle('scrolled', !e.isIntersecting);
+    document.documentElement.style.setProperty('--topbar-h', `${$('.topbar').offsetHeight}px`);
+  }, { rootMargin: '-44px 0px 0px 0px' });
   titleObs.observe(t);
 }
 
@@ -261,9 +269,9 @@ function renderToday() {
     const y = m >= 10 ? new Date().getFullYear() + 1 : new Date().getFullYear();
     cards.push(`<div class="today-card"><div class="k">休賽季</div><div class="hero">${y} 選秀</div><div class="muted small">大約 3 月下旬｜選秀方向：${esc(strat || '均衡＋輕度偏好')}</div>
       ${next.length ? `<div class="sumline" style="margin-top:8px">選秀表前 3 名：${next.map((p) => `<b>${esc(p.name)}</b>`).join('、')}</div>` : ''}
-      <div class="acts"><button type="button" class="btn primary" data-goto="draft">看選秀表</button><button type="button" class="btn" data-goto="demo">練習：手動玩 ${y}</button></div></div>`);
+      <div class="acts"><button type="button" class="btn primary" data-goto="draft">看選秀表</button><button type="button" class="btn" data-goto="demo">模擬 ${y}</button></div></div>`);
     cards.push(`<div class="today-card"><div class="k">複習</div><div class="sumline">重播 ${y - 1} 任一週的即時對戰，或練習選秀同步</div>
-      <div class="acts"><button type="button" class="btn" data-goto="live">重播 ${y - 1}</button><button type="button" class="btn" data-goto="draft" data-open="ds-box">練習選秀同步</button></div></div>`);
+      <div class="acts"><button type="button" class="btn" data-goto="live">重播 ${y - 1}</button><button type="button" class="btn" data-goto="draft" data-open="ds-box">練習同步</button></div></div>`);
   }
   $('#today').innerHTML = cards.join('');
 }

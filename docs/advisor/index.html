@@ -36,7 +36,7 @@
         <summary>🔄 選秀即時同步 <span class="muted small" id="ds-meta"></span></summary>
         <p class="muted small">選秀進行中，App 定時讀 Yahoo 的選秀結果：被選走的自動標「被選」、你選的標「我選」，快輪到你時列出前 3 推薦並震動提醒。休賽季可以用「練習」重播最近一年的真實選秀。</p>
         <div class="two">
-          <label>資料來源<select id="ds-mode"><option value="replay">練習（重播最近一年選秀）</option><option value="yahoo">Yahoo 即時（選秀當天）</option></select></label>
+          <label>資料來源<select id="ds-mode"><option value="replay">練習（重播去年）</option><option value="yahoo">Yahoo 即時</option></select></label>
           <label>你的順位<select id="ds-slot"></select></label>
         </div>
         <div class="two" id="ds-speed-wrap" style="margin-top:6px"><label>練習速度<select id="ds-speed"><option value="2">每順位 2 秒</option><option value="4">每順位 4 秒</option><option value="8">每順位 8 秒</option></select></label><span></span></div>
@@ -48,7 +48,7 @@
         <div id="ds-status" class="status" hidden></div>
         <div id="ds-panel"></div>
       </details>
-      <details class="card" id="strategy-box" open>
+      <details class="card" id="strategy-box">
         <summary>選秀方向 <span class="muted" id="strategy-summary"></span></summary>
         <p class="muted small">底層一律是「均衡＋輕度偏好」（模擬奪冠 30.8%，最強）。勾流派會疊加上去；勾多個是混合，混合組合沒有模擬過。</p>
         <h3>偏好</h3>

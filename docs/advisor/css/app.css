@@ -387,3 +387,18 @@ body.kb .tabbar, body.kb .toast { display: none; }
 #mn-recs { scroll-margin-top: 56px; }
 .mn-row[data-card] { cursor: pointer; }
 .mn-row .why1 { margin-top: 2px; }
+
+/* ── 使用體驗 100 次模擬後的修正 ── */
+/* 復原提示改到頂列下方，不擋底部按鈕 */
+.toast { top: calc(env(safe-area-inset-top) + 2px); bottom: auto; transform: translateY(-160%); z-index: 80; pointer-events: none; }
+.toast.show { pointer-events: none; }
+.toast .toast-undo { pointer-events: auto; }
+.toast.show { transform: none; }
+/* 按鈕至少 44px */
+.mn-row .btn { min-height: var(--tap); padding: 6px 14px; }
+.sh-x { width: 44px; height: 44px; min-height: 44px; }
+/* 選秀表的搜尋列固定在頂列下面 */
+#tab-draft > .toolbar { position: sticky; top: var(--topbar-h, 60px); z-index: 8; background: var(--bg); padding: 8px 0; margin: 0; }
+/* 從別頁跳過來捲到卡片時，標題不被頂列蓋住 */
+details.card, .card, #mn-recs { scroll-margin-top: 64px; }
+.pk { cursor: pointer; }

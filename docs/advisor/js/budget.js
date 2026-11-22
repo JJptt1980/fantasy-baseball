@@ -3,8 +3,9 @@
 export const PLAYOFF_RESERVE = 25;
 
 // cap：整季上限；used：已用；week：目前週次；playoffWeeks：[24,25,26]；weekCap：每週上限（沒有就 null）
-export function moveBudget({ cap, used, week, playoffWeeks, weekCap = null }) {
+export function moveBudget({ cap, used, week, playoffWeeks, weekCap = null, seasonOver = false }) {
   if (!cap || !week) return null;
+  if (seasonOver) return { phase: 'over', cap, used, left: Math.max(0, cap - used), reserve: 0, level: 'ok', thisWeek: 0 };
   const firstPO = playoffWeeks?.[0] ?? 24;
   const lastPO = playoffWeeks?.at(-1) ?? firstPO + 2;
   const regWeeks = firstPO - 1;
@@ -32,6 +33,7 @@ export function moveBudget({ cap, used, week, playoffWeeks, weekCap = null }) {
 
 export function budgetMessage(b) {
   if (!b) return '';
+  if (b.phase === 'over') return `球季已結束：今年換了 ${b.used} 次（上限 ${b.cap}）。明年開季額度重新計算。`;
   if (b.phase === 'playoff') {
     if (b.left === 0) return '整季額度已經用完，季後賽不能再換人。';
     return `季後賽：還剩 ${b.left} 次，平均每週可用 ${b.thisWeek} 次，盡量用在當週先發兩場的投手和拉鋸類別。`;

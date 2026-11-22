@@ -232,10 +232,11 @@ function draftReport(g) {
   });
   const diff = appS != null ? Math.round(((mineS - appS) / appS) * 100) : null;
   return `<div class="card report"><h3 class="first">選秀成績單</h3>
+    <button type="button" class="btn primary" data-act="report-ok" style="width:100%;margin:6px 0 4px">開始第 1 週</button>
     <div class="kpis"><div><b>${rank}</b><span>12 隊實力排名</span></div><div><b>${Math.round(mineS)}</b><span>先發實力分</span></div><div><b>${diff == null ? '-' : `${diff > 0 ? '+' : ''}${diff}%`}</b><span>比全照 App 選</span></div></div>
     <p class="why1 lead">${rank <= 3 ? '紙上實力前段班，' : rank >= 9 ? '紙上實力偏弱，季中要靠撿人補，' : '紙上實力中段，'}${diff == null ? '' : diff >= 0 ? '你的選擇不輸 App 推薦。' : `比全照 App 推薦少 ${-diff}%。`}</p>
     <h3>各類別在 12 隊排第幾</h3>${miniBars(catRows)}
-    <div class="mn-actions"><button type="button" class="btn primary" data-act="report-ok">開始第 1 週</button></div></div>`;
+    <div class="mn-actions"><button type="button" class="btn" data-act="report-ok">開始第 1 週</button></div></div>`;
 }
 
 // ── 每週畫面 ──
@@ -285,7 +286,7 @@ function renderWeek() {
     ${pv.options.length ? pv.options.map((o) => `<div class="mn-row"><div>撿 <b>${esc(o.add.name)}</b> <span class="pos">${esc(o.add.pos)}</span>${o.add.rookie ? ' <span class="tag warn">新人</span>' : ''} ${o.drop ? `丟 ${esc(o.drop.name)}` : '（補空位，不用丟人）'}
         <div class="sub">${esc(recentLine(pv.recent(o.add), o.add))}</div><div class="note">每週多贏 ${o.gain.toFixed(2)} 類</div></div>
         <button type="button" class="btn" data-move="${o.add.id}:${o.drop?.id ?? ''}">撿</button></div>`).join('') : '<p class="muted small">自由球員裡目前沒有能讓你變強的人。</p>'}
-    <div class="mn-actions"><button type="button" class="btn" data-act="auto-moves">照建議撿（最多 2 人）</button></div></div>`;
+    ${pv.options.length ? '<div class="mn-actions"><button type="button" class="btn" data-act="auto-moves">照建議撿（最多 2 人）</button></div>' : ''}</div>`;
 
   const fa = g.searchFA(st.faQ, st.faSide);
   const manual = `<details class="card"><summary>自己找人撿</summary>

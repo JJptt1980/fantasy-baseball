@@ -3,7 +3,7 @@ import * as Y from './yahoo-source.js';
 import { rangeStats, toMaps } from './mlb.js';
 import { recommend, recentWindow, weeklyIndex, CAT_LABEL } from './pickup.js';
 import { moveBudget, budgetMessage } from './budget.js';
-import { haptic, toast, swipeRows, skeleton } from './ui-kit.js';
+import { haptic, toast, swipeRows, skeleton, sheet, closeSheet } from './ui-kit.js';
 
 const $ = (s) => document.querySelector(s);
 const LS = { league: 'pk.league', wants: 'pk.wants', picks: 'pk.picks', mode: 'pk.mode', side: 'pk.side' };
@@ -94,7 +94,7 @@ async function loadLeague(week) {
     Y.teams(lg).catch(() => []),
   ]);
   const mine = teams.find((t) => String(t.teamId) === String(myId));
-  st.budget = rules && mine ? moveBudget({ cap: rules.maxSeason, used: mine.moves, week: mu.week, playoffWeeks: rules.playoffWeeks, weekCap: rules.maxWeek }) : null;
+  st.budget = rules && mine ? moveBudget({ cap: rules.maxSeason, used: mine.moves, week: mu.week, playoffWeeks: rules.playoffWeeks, weekCap: rules.maxWeek, seasonOver: seasonOver(mu.week, rules.playoffWeeks) }) : null;
   renderBudget();
   st.myRoster = myRoster;
   st.oppRoster = oppRoster;
@@ -173,6 +173,12 @@ function renderSummary() {
     ${r.missing.length ? `<div class="sumline muted small">找不到近況數據（最近沒上場或名字對不上）：${esc(r.missing.join('、'))}</div>` : ''}`;
 }
 
+// 休賽季：已經是最後一個季後賽週，而且現在是 10 月～2 月
+function seasonOver(week, playoffWeeks) {
+  const m = new Date().getMonth();
+  return week >= (playoffWeeks?.at(-1) ?? 26) && (m >= 9 || m <= 1);
+}
+
 // 一句話理由（依目前的推薦方式換說法）
 function whyLine(why) {
   if (!why?.length) return '綜合分數高，沒有特別突出的單一類別';
@@ -201,7 +207,7 @@ function renderList() {
         <div class="name">${i + 1}. ${esc(p.name)}<span class="pos">${esc(p.pos)}</span>${x.yahoo?.status ? ` <span class="tag warn">${esc(x.yahoo.status)}</span>` : ''}</div>
         <div class="line">${esc(p.team)}｜${esc(lineOf(p))}</div>
         <div class="why1">${esc(whyLine(x.why))}</div>
-        <input class="note" type="text" placeholder="備註／想法（例如：等週三再撿、要換掉誰）" value="${esc(pick.note ?? '')}">
+        <input class="note" type="text" placeholder="備註／想法（例如：等週三再撿、要換掉誰）" value="${esc(pick.note ?? '')}" ${pick.on || pick.note ? '' : 'hidden'}>
       </div></li>`;
   }).join('') || '<li class="muted small">沒有符合的球員</li>';
 }
@@ -224,7 +230,7 @@ function renderBudget() {
 function picksWarning() {
   const n = Object.values(st.picks).filter((v) => v.on).length;
   const b = st.budget;
-  if (!b || !n || n <= b.thisWeek) return '';
+  if (!b || b.phase === 'over' || !n || n <= b.thisWeek) return '';
   return `<div class="sumline warn-text">你勾了 ${n} 人，超過這週建議的 ${b.thisWeek} 次。${b.phase === 'regular' ? `多換的會吃到季後賽保留額度。` : ''}</div>`;
 }
 
@@ -242,8 +248,10 @@ function setPick(li, on, fromSwipe = false) {
   savePick(li, { on });
   li.classList.toggle('checked', on);
   li.querySelector('input[type=checkbox]').checked = on;
+  const note = li.querySelector('.note');
+  if (note && !note.value) note.hidden = !on;
   renderPicked();
-  const over = st.budget && on && Object.values(st.picks).filter((v) => v.on).length > st.budget.thisWeek;
+  const over = st.budget && st.budget.phase !== 'over' && on && Object.values(st.picks).filter((v) => v.on).length > st.budget.thisWeek;
   haptic(over ? 'warn' : 'mark');
   if (fromSwipe && was !== on) toast(`${li.dataset.name}：${on ? '要撿' : '取消'}`, { undo: () => setPick(li, was) });
 }
@@ -298,6 +306,23 @@ export function initPickup() {
     renderPicked();
     haptic('warn');
     toast('已清除勾選', { undo: () => { st.picks = saved; lsSet(LS.picks, st.picks); renderList(); renderPicked(); } });
+  });
+  // 點球員（不是勾選框、備註框）→ 詳情卡
+  $('#pk-list').addEventListener('click', (e) => {
+    const li = e.target.closest('.pk');
+    if (!li || li.dataset.justSwiped || e.target.closest('input, button')) return;
+    const x = st.result?.lists[st.mode]?.[st.side]?.find((y) => String(y.p.id) === li.dataset.id);
+    if (!x) return;
+    const p = x.p;
+    const on = !!st.picks[p.id]?.on;
+    haptic('tap');
+    const box = sheet(`
+      <div class="sh-head"><div><div class="sh-name">${esc(p.name)}<span class="pos">${esc(p.pos)}</span></div><div class="muted small">${esc(p.team)}${x.yahoo?.status ? `・<span class="warn-text">${esc(x.yahoo.status)}</span>` : ''}</div></div><button type="button" class="sh-x" data-close aria-label="關閉">✕</button></div>
+      <p class="why1 lead">${esc(whyLine(x.why))}</p>
+      <h3>最近 14 天（換算成一週）</h3><div class="sumline">${esc(lineOf(p))}</div>
+      <p class="muted small">${esc(MODE_DESC[st.mode])}</p>
+      <div class="sh-acts"><button type="button" class="btn primary" data-pk="toggle">${on ? '取消要撿' : '我要撿他'}</button></div>`);
+    box.addEventListener('click', (ev) => { if (ev.target.closest('[data-pk]')) { closeSheet(); setPick(li, !on, true); } });
   });
   // 往右滑＝勾選要撿、往左滑＝取消
   swipeRows($('#pk-list'), '.pk', { right: (li) => setPick(li, true, true), left: (li) => setPick(li, false, true) });
