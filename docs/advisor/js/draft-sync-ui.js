@@ -1,7 +1,7 @@
 // 選秀頁「🔄 選秀即時同步」：自動標我選／被選、還差幾順位、前 3 推薦、預測下一輪、快輪到時震動
 import * as Y from './yahoo-source.js';
 import { yahooSource, replaySource, nextDelay, RateLimited } from './draft-source.js';
-import { haptic } from './ui-kit.js';
+import { haptic, toast } from './ui-kit.js';
 import { draftState, recommend, predictAvailable, openSlots, TEAMS, ROUNDS } from './draft-sync.js';
 
 const $ = (s) => document.querySelector(s);
@@ -125,6 +125,7 @@ async function tick() {
 
 // ── 同步與計算 ──
 function update(picks) {
+  st.lastPicks = picks;
   const board = st.getBoard();
   if (!board?.length) return null;
   const manualSlot = Number($('#ds-slot').value) || null;
@@ -140,6 +141,9 @@ function update(picks) {
     st.practiceLog.push({ overall: lastMine.overall, round: lastMine.round, picked: lastMine.player?.name ?? lastMine.name, recs: st.recBefore.recs });
   }
 
+  // 你手動按「被選走」的人也當成被選走（Yahoo 還沒更新也立刻生效）
+  const marked = st.getMarks?.() ?? {};
+  for (const p of board) if (marked[p.id] === 'taken') s.takenIds.add(p.id);
   const recs = s.done || !s.slot ? [] : recommend({ board, takenIds: s.takenIds, myPlayers: s.mine, picksUntil: s.picksUntil, myPicksLeft: s.myPicksLeft, n: 5 });
   if (s.myNext && s.picksUntil <= 1) st.recBefore = { overall: s.myNext, recs: recs.slice(0, 3).map((r) => r.p.name) };
   const atMine = s.picksUntil != null ? predictAvailable({ board, takenIds: s.takenIds, k: s.picksUntil }) : null;
@@ -165,8 +169,19 @@ function starRows(recs) {
   const lv = (r, i) => (i === 0 ? 3 : r.score >= top.score - Math.abs(top.score) * 0.05 ? 2 : r.score >= top.score - Math.abs(top.score) * 0.15 ? 1 : 0);
   const TAG = ['<span class="tag">備案</span>', '<span class="tag lv1">⭐ 可以考慮</span>', '<span class="tag lv2">⭐⭐ 也很好</span>', '<span class="tag lv3">⭐⭐⭐ 最推薦</span>'];
   return recs.slice(0, 3).map((r, i) => `<div class="mn-row"><div><b>${esc(r.p.name)}</b> <span class="pos">${esc(r.p.pos)}</span> ${TAG[lv(r, i)]}
-      <div class="muted small">${esc(r.reasons[0] ?? '')}</div></div></div>`).join('') + backupLine(recs);
+      <div class="muted small">${esc(r.reasons[0] ?? '')}</div></div>${takenBtn(r.p)}</div>`).join('') + backupLine(recs);
 }
+// 「被選走」：在 Yahoo 看到別人選了他，按一下立刻從推薦拿掉（可復原）
+const takenBtn = (p) => `<button type="button" class="btn taken-btn" data-taken="${p.id}" aria-label="${esc(p.name)} 被別人選走了">被選走</button>`;
+function markTaken(id) {
+  const before = { ...(st.getMarks?.() ?? {}) };
+  const p = st.getBoard().find((x) => x.id === id);
+  st.applyMarks({ [id]: 'taken' });
+  haptic('mark');
+  if (st.lastPicks) update(st.lastPicks);
+  toast(`${p?.name ?? ''} 被選走了`, { undo: () => { st.setMarks(before); if (st.lastPicks) update(st.lastPicks); } });
+}
+
 function backupLine(recs) {
   const b = recs.slice(3, 5);
   return b.length ? `<div class="backup">🔄 上面的被選走了？改選：<b>${b.map((r) => esc(r.p.name)).join('</b>、<b>')}</b></div>` : '';
@@ -185,7 +200,7 @@ function renderFocus() {
     <div class="fc-top"><span class="muted small">第 ${s.done ? ROUNDS : Math.ceil(s.nextOverall / TEAMS)} 輪｜已選 ${s.made.length}/${TEAMS * ROUNDS}</span><button type="button" class="btn" id="ds-focus-close">離開</button></div>
     <div class="fc-hero ${now ? 'now' : ''}"><div class="fc-n">${big}</div><div class="fc-s">${esc(sub)}</div></div>
     ${now ? '<button type="button" class="btn primary fc-room" id="ds-room">打開 Yahoo 選秀室</button>' : ''}
-    ${recs.length ? `<h3>App 建議選</h3>${recs.slice(0, 3).map((r, i) => `<div class="fc-rec"><div class="fc-i">${i + 1}</div><div><div class="fc-name">${esc(r.p.name)} <span class="pos">${esc(r.p.pos)}</span></div><div class="muted small">${esc(r.reasons[0] ?? '')}</div></div></div>`).join('')}${backupLine(recs)}` : ''}
+    ${recs.length ? `<h3>App 建議選 <span class="muted small">（別人選走了就按「被選走」）</span></h3>${recs.slice(0, 3).map((r, i) => `<div class="fc-rec"><div class="fc-i">${i + 1}</div><div><div class="fc-name">${esc(r.p.name)} <span class="pos">${esc(r.p.pos)}</span></div><div class="muted small">${esc(r.reasons[0] ?? '')}</div></div>${takenBtn(r.p)}</div>`).join('')}${backupLine(recs)}` : ''}
     ${last.length ? `<h3>剛剛被選</h3>${last.map((m) => `<div class="sumline small">${m.overall}. ${esc(m.player?.name ?? m.name)}<span class="muted">｜${esc(m.team ?? '')}</span></div>`).join('')}` : ''}`;
 }
 function openFocus(on) {
@@ -199,6 +214,8 @@ function openFocus(on) {
     box.addEventListener('click', (e) => {
       if (e.target.id === 'ds-focus-close') openFocus(false);
       if (e.target.id === 'ds-room') openRoom();
+      const t = e.target.closest('[data-taken]');
+      if (t) markTaken(Number(t.dataset.taken));
     });
   }
   box.hidden = !on;
@@ -251,7 +268,7 @@ function render() {
   const cnt = open.reduce((m, x) => ((m[x] = (m[x] ?? 0) + 1), m), {});
   const missing = Object.entries(cnt).map(([k, n]) => (n > 1 ? `${k}×${n}` : k)).join('、');
 
-  const recHtml = recs.length ? `<h3>App 建議選 <span class="muted small">（每次更新會自動換掉被選走的人）</span></h3>${starRows(recs)}` : '';
+  const recHtml = recs.length ? `<h3>App 建議選 <span class="muted small">（別人選走了就按「被選走」，會立刻換人）</span></h3>${starRows(recs)}` : '';
   const predHtml = atMine && s.picksUntil > 0 ? `<details class="sub"><summary>輪到你時，大概還剩誰？</summary>
       <div class="sumline">應該還在：${atMine.stay.slice(0, 6).map((p) => esc(p.name)).join('、')}</div>
       <div class="sumline muted">可能被搶走：${atMine.gone.sort((a, b) => a.rank - b.rank).slice(0, 6).map((p) => esc(p.name)).join('、') || '—'}</div></details>` : '';
@@ -287,6 +304,8 @@ export function initDraftSync({ getBoard, applyMarks, getMarks, setMarks }) {
     renderButtons();
   });
   $('#ds-panel').addEventListener('click', (e) => {
+    const t = e.target.closest('[data-taken]');
+    if (t) return markTaken(Number(t.dataset.taken));
     if (e.target.id === 'ds-focus-open') openFocus(true);
     if (e.target.id === 'ds-room') openRoom();
   });

@@ -435,3 +435,5 @@ details.card, .card, #mn-recs { scroll-margin-top: 64px; }
 .backup { margin-top: 8px; padding: 8px 10px; border-radius: 10px; background: var(--surface-2); font-size: var(--fs-sub); }
 #tab-demo.playing > .large-title, #tab-demo.playing > #demo-mode, #tab-demo.playing #mn-start { display: none; }
 .draft-head { padding: 0 2px 8px; }
+.taken-btn { min-height: var(--tap); padding: 4px 12px; white-space: nowrap; font-size: var(--fs-sub); }
+.fc-rec { grid-template-columns: 40px 1fr auto; }
