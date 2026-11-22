@@ -6,7 +6,9 @@
 - Worker 已部署：https://fantasy-baseball-api.weather-one-proxy.workers.dev（KV fantasy-baseball-sessions，id 0166c23e…）
 - GitHub Pages 已開：https://jjptt1980.github.io/fantasy-baseball/
 - Yahoo App 已建立（Confidential Client、Fantasy Sports Read），兩個 secret 已設定，Yahoo 已接受 Client ID
-- 尚未：手機實測登入（Client Secret 要實際登入才驗證得到）
+- 手機實測：Yahoo 登入成功（Client Secret 正確）
+- 修正：Yahoo API 主機應為 fantasysports.yahooapis.com（原本寫錯造成 Cloudflare 530 / 1016），已重新部署
+- 尚未：用真實資料確認聯盟清單與對戰畫面
 
 ## 已定案的決定
 - 前端純 HTML/CSS/JS（ES Modules、無 build），GitHub Pages 從 main 的 /docs 發佈

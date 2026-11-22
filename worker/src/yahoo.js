@@ -1,5 +1,5 @@
 // Yahoo Fantasy API（唯讀）代理
-const BASE = 'https://fantasy.yahooapis.com/fantasy/v2/';
+const BASE = 'https://fantasysports.yahooapis.com/fantasy/v2/';
 const PATH_RE = /^[A-Za-z0-9_.;=,/:-]+$/;
 const PREFIXES = ['users;use_login=1', 'games;', 'game/', 'league/', 'leagues;', 'team/'];
 
