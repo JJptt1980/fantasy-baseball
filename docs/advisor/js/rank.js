@@ -104,10 +104,10 @@ function adjust(p, cfg) {
   const notes = [];
   if (p.age && p.age <= cfg.youngAge && v > 0) {
     v *= 1 + cfg.youngBonus;
-    notes.push('上升股');
+    notes.push('年輕、還在進步');
   }
   if (p.side === 'B' && p.OPS25 && p.OPS - p.OPS25 > 0.06 && p.age <= 28) {
-    notes.push(`OPS 比前一季進步 +${(p.OPS - p.OPS25).toFixed(3)}`);
+    notes.push(`打擊比前一年進步很多（OPS +${(p.OPS - p.OPS25).toFixed(3)}）`);
   }
   if (p.age && p.age >= cfg.oldAge && v > 0) {
     v *= 1 - cfg.oldPenalty;
@@ -118,17 +118,17 @@ function adjust(p, cfg) {
     (p.side === 'P' && p.pos === 'SP' && Math.min(p.IP, p.IP25 || p.IP) < 110);
   if (hurt && v > 0) {
     v *= 1 - cfg.injuryPenalty;
-    notes.push('近兩季出賽不足');
+    notes.push('這兩年常常受傷沒上場');
   }
   if (p.pos === 'C' && v > 0) {
     v *= 1 - cfg.catcherPenalty;
-    notes.push('捕手晚選');
+    notes.push('捕手可以晚點選');
   }
   if (p.side === 'B' && p.K / p.PA > 0.28 && p.AVG < 0.24) {
     v -= cfg.avoidKPenalty;
-    if (cfg.avoidKPenalty) notes.push('三振多＋打擊率低，避開');
+    if (cfg.avoidKPenalty) notes.push('常被三振、打擊率又低，少選');
   }
-  if (p.side === 'P' && p.IP && (p.BB * 9) / p.IP > 3.6) notes.push(`保送偏多 BB/9 ${((p.BB * 9) / p.IP).toFixed(1)}`);
+  if (p.side === 'P' && p.IP && (p.BB * 9) / p.IP > 3.6) notes.push(`保送給太多（每 9 局 ${((p.BB * 9) / p.IP).toFixed(1)} 次）`);
   // 預測／Statcast／傷兵的備註（projections.js annotate 加的；Python 版沒有這些資料）
   if (p.extraNotes?.length) notes.push(...p.extraNotes);
   p.value = v;

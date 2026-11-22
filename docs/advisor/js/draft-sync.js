@@ -112,11 +112,11 @@ export function recommend({ board, takenIds, myPlayers, picksUntil = 0, myPicksL
   scored.sort((a, b) => b.score - a.score);
   return scored.slice(0, n).map((x) => {
     const reasons = [];
-    if (x.fillSlot) reasons.push(`補先發空缺 ${x.fillSlot}`);
-    else reasons.push('先發格子已滿，當板凳深度');
+    if (x.fillSlot) reasons.push(`補 ${x.fillSlot} 的空位`);
+    else reasons.push('上場位置滿了，當替補');
     const helps = Object.entries(x.p.z ?? {}).filter(([c, z]) => z > 0.3 && need[c] > 1.15).sort((a, b) => b[1] * need[b[0]] - a[1] * need[a[0]]).slice(0, 2).map(([c]) => CAT_LABEL[c]);
-    if (helps.length) reasons.push(`補你偏弱的 ${helps.join('、')}`);
-    reasons.push(`選秀表第 ${x.p.rank}（市場第 ${x.p.marketRank}）`);
+    if (helps.length) reasons.push(`補你比較弱的 ${helps.join('、')}`);
+    reasons.push(`選秀表第 ${x.p.rank}（別人大概第 ${x.p.marketRank} 個選）`);
     if (x.p.notes?.length) reasons.push(x.p.notes[0]);
     return { ...x, reasons };
   });

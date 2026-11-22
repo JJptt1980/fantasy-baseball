@@ -43,7 +43,7 @@ test('推薦：最後幾輪只推補得上空格的人', () => {
   // 只剩 1 次選擇，但空格很多 → 一定要能補空格（三人都能補，正常排序）
   const r = recommend({ board, takenIds: new Set(), myPlayers: mine, myPicksLeft: 30 });
   assert.equal(r.length, 3);
-  assert.ok(r[0].reasons.some((x) => x.startsWith('補先發空缺')));
+  assert.ok(r[0].reasons.some((x) => /的空位$/.test(x)));
   assert.ok(openSlots([]).length === 23);
 });
 

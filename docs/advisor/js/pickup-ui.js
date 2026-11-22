@@ -17,9 +17,9 @@ const CHIPS = [
 ];
 
 const MODE_DESC = {
-  recent: '只看最近 14 天表現（換算成一週），18 類別一樣重要。',
-  fit: '補你的弱項：你落後「一般球隊」越多的類別，權重越高。',
-  opp: '針對當週對手：跟對手差距越小、越能翻盤的類別，權重越高。',
+  recent: '看最近兩週誰打得最好。',
+  fit: '找能補你弱項的人（你哪一類比別隊差，就補哪一類）。',
+  opp: '找這週對付對手最有用的人（差一點就能贏的類別優先）。',
 };
 
 const st = {
@@ -267,6 +267,7 @@ function savePick(li, patch) {
 export function initPickup() {
   $('#pk-chips').innerHTML = CHIPS.map(([label, kw]) => `<button type="button" class="chip" data-kw="${esc(kw)}">${esc(label)}</button>`).join('');
   const wants = $('#pk-wants');
+  if (st.wants) $('#pk-wants-box').open = true;
   wants.value = st.wants;
   const syncChips = () => document.querySelectorAll('.chip').forEach((c) => c.classList.toggle('on', st.wants.includes(c.dataset.kw)));
   syncChips();

@@ -6,7 +6,7 @@ import { buildPlayers, board as rankBoard, blendMaps } from './rank.js';
 import { projections, withProjections, PRESEASON } from './projections.js';
 import { buildConfig } from './strategies.js';
 import { CAT_LABEL } from './pickup.js';
-import { haptic, toast, miniBars } from './ui-kit.js';
+import { haptic, toast, miniBars, sheet } from './ui-kit.js';
 import { reasonOf, openPlayerCard, NICE } from './player-card.js';
 
 const $ = (s) => document.querySelector(s);
@@ -179,37 +179,59 @@ function renderDraft() {
   const tu = g.turn();
   const opt = g.draftOptions();
   const since = g.draftLog.slice(st.lastSeen).filter((x) => x.team !== g.mySlot);
-  // 只在「上次第 1 推薦（你沒選他）被別人選走」時提一句
   const lostTop = st.lastTop != null ? since.find((x) => x.player.id === st.lastTop) : null;
   st.lastTop = opt.recommended[0]?.id ?? null;
   const mine = g.teams[g.mySlot];
   const recIds = new Set(opt.recommended.map((p) => p.id));
-  const all = opt.all.filter((p) => !recIds.has(p.id) && (!st.q || p.name.toLowerCase().includes(st.q.toLowerCase())) && (!st.pos || st.pos === p.side || st.pos === p.pos)).slice(0, 60);
+  const all = opt.all.filter((p) => !recIds.has(p.id) && (!st.q || p.name.toLowerCase().includes(st.q.toLowerCase())) && (!st.pos || st.pos === p.side || st.pos === p.pos)).slice(0, 40);
   const openCnt = opt.open.reduce((m, x) => ((m[x] = (m[x] ?? 0) + 1), m), {});
   const openTxt = Object.entries(openCnt).map(([k, n]) => (n > 1 ? `${k}×${n}` : k)).join('、');
-  const recRow = (p, i) => `<div class="mn-row" data-card="${p.id}"><div><b>${i + 1}. ${esc(p.name)}</b> <span class="pos">${esc(p.pos)}</span> ${nextTag(p)}
-      <div class="why1">${esc(recSentence(p))}</div><div class="sub muted">選秀表第 ${p.rank}｜市 ${p.marketRank}｜${esc(pLine(p))}</div></div>
-      <button type="button" class="btn ${i === 0 ? 'primary' : ''}" data-pick="${p.id}">選他</button></div>`;
-  const row = (p) => `<div class="mn-row" data-card="${p.id}"><div><b>${esc(p.name)}</b> <span class="pos">${esc(p.pos)}</span> <span class="muted small">選秀表第 ${p.rank}｜市 ${p.marketRank}</span>
-      <div class="sub">${esc(pLine(p))}</div></div>
-      <button type="button" class="btn" data-pick="${p.id}">選他</button></div>`;
+  // 一列＝一位球員：點整列就是選他；右邊 ⓘ 看詳情
+  const row = (p, i) => `<div class="pick-row ${i === 0 ? 'top' : ''}" data-pick="${p.id}" role="button" tabindex="0">
+      <div class="pk-main"><b>${i != null ? `${i + 1}. ` : ''}${esc(p.name)}</b> <span class="pos">${esc(p.pos)}</span> ${i != null ? nextTag(p) : ''}
+        <div class="why1">${esc(i != null ? recSentence(p) : reasonOf(p))}</div></div>
+      <button type="button" class="info" data-card="${p.id}" aria-label="看 ${esc(p.name)} 的詳細資料">ⓘ</button></div>`;
   $('#mn-body').innerHTML = `
-    <div class="card"><h3 class="first">第 ${tu.round} 輪・總第 ${tu.overall} 位，輪到你</h3>
-      <div class="sumline muted small">${opt.next ? `下一次：第 ${Math.ceil(opt.next / TEAMS)} 輪總第 ${opt.next} 位（中間還有 ${opt.between} 人）` : '這是你最後一次選'}｜你是第 ${g.mySlot + 1} 順位</div>
-      ${lostTop ? `<div class="sumline muted small">上次的第 1 推薦 ${esc(lostTop.player.name)} 被 ${esc(g.names[lostTop.team])} 選走了</div>` : ''}
-      ${since.length ? `<details class="sub muted small"><summary>其他隊這段時間選了 ${since.length} 人</summary>${since.map((x) => `${esc(g.names[x.team])} 選 ${esc(x.player.name)}`).join('、')}</details>` : ''}
-      <h3>你的陣容（${mine.length}/${ROUNDS}）</h3>${rosterSummary(mine)}
-      ${mine.length ? `<details class="sub muted small"><summary>已選 ${mine.length} 人</summary>${mine.map((p) => esc(p.name)).join('、')}</details>` : ''}
+    <div class="card draft-head">
+      <div class="dh-turn">第 ${tu.round} 輪・輪到你選 <button type="button" class="help" data-act="draft-help" aria-label="怎麼選">？怎麼選</button></div>
+      <div class="muted small">${opt.next ? `選完後要再等 ${opt.between} 人才又輪到你` : '這是你最後一次選'}${lostTop ? `｜上次推薦的 ${esc(lostTop.player.name)} 被別人選走了` : ''}</div>
+      <div class="sumline">${opt.open.length ? `還缺：<b>${esc(openTxt)}</b>` : '先發位置都滿了，接下來選替補'}<span class="muted small">｜已選 ${mine.length}/${ROUNDS} 人</span></div>
     </div>
-    ${opt.forced ? `<div class="ds-banner warn">剩 ${opt.left} 輪、還缺 ${opt.open.length} 個先發格子（${esc(openTxt)}）：接下來只能選補得上這些格子的人，所以推薦的排名會比較後面。</div>` : ''}
-    <div class="card" id="mn-recs"><h3 class="first">App 推薦 <span class="muted small">點球員看詳情</span></h3>${opt.recommended.map(recRow).join('')}
-      <div class="mn-actions"><button type="button" class="btn" data-act="draft-rest">剩下全照建議選完</button></div>
+    ${opt.forced ? `<div class="ds-banner warn">只剩 ${opt.left} 輪，還有 ${opt.open.length} 個位置沒人（${esc(openTxt)}），所以只能選這些位置的人。</div>` : ''}
+    <div class="card" id="mn-recs"><h3 class="first">👆 點一下＝選他（點錯 6 秒內可「復原」）</h3>
+      ${opt.recommended.map((p, i) => row(p, i)).join('')}
+      <div class="mn-actions"><button type="button" class="btn" data-act="draft-rest">剩下的都讓 App 幫我選</button></div>
     </div>
-    <div class="card"><h3 class="first">其他可選球員</h3>
-      <div class="toolbar"><input id="mn-q" type="search" placeholder="搜尋球員" value="${esc(st.q)}">
+    <details class="card" ${st.q || st.pos ? 'open' : ''}><summary>找其他球員</summary>
+      <div class="toolbar" style="margin-top:8px"><input id="mn-q" type="search" placeholder="打名字找人" value="${esc(st.q)}">
         <select id="mn-pos">${['', 'B', 'P', 'C', '1B', '2B', '3B', 'SS', 'OF', 'DH', 'SP', 'RP'].map((v) => `<option value="${v}" ${st.pos === v ? 'selected' : ''}>${v === '' ? '全部' : v === 'B' ? '打者' : v === 'P' ? '投手' : v}</option>`).join('')}</select></div>
-      ${all.map(row).join('') || '<p class="muted">沒有符合的球員</p>'}
-    </div>`;
+      ${all.map((p) => row(p, null)).join('') || '<p class="muted">找不到</p>'}
+      ${since.length ? `<div class="muted small" style="margin-top:8px">別隊剛剛選了：${since.map((x) => esc(x.player.name)).join('、')}</div>` : ''}
+    </details>
+    ${mine.length ? `<details class="card"><summary>我已經選的 ${mine.length} 人</summary><div class="sub muted small">${mine.map((p) => esc(p.name)).join('、')}</div></details>` : ''}`;
+  if (!st.tipShown && !lsGet(LS_TIP, false)) { st.tipShown = true; setTimeout(draftHelp, 50); }
+}
+
+// 進入模擬選秀時的教學（可以勾「下次不要再顯示」）
+const LS_TIP = 'mn.draftTipSkip';
+function draftHelp() {
+  let cb = null;
+  const box = sheet(`
+    <div class="sh-head"><div class="sh-name">模擬選秀怎麼玩</div><button type="button" class="sh-x" data-close aria-label="關閉">✕</button></div>
+    <ol class="steps">
+      <li>12 隊輪流選球員，一共 25 輪。輪到你時，上面會寫「輪到你選」。</li>
+      <li><b>點一下球員＝選他。</b>點錯了，上面會跳出「復原」，6 秒內按就能反悔。</li>
+      <li>想先看清楚再選，點球員右邊的 <b>ⓘ</b>。</li>
+      <li>App 推薦排在最上面，第 1 個通常最好。標<span class="tag warn">下輪前會被選走</span>的人，現在不選就沒了。</li>
+      <li>上面的「還缺」告訴你哪些位置還沒有人，記得補齊。</li>
+      <li>不想一個一個選？按最下面「剩下的都讓 App 幫我選」。</li>
+    </ol>
+    <label class="check"><input type="checkbox" id="tip-skip"> 下次不要再顯示</label>
+    <div class="sh-acts"><button type="button" class="btn primary" data-close>知道了，開始選</button></div>`, {
+    onClose: () => lsSet(LS_TIP, !!cb?.checked),
+  });
+  cb = box.querySelector('#tip-skip');
+  cb.checked = lsGet(LS_TIP, false);
 }
 
 // ── 選秀成績單：跟同一場選秀全照 App 推薦比、在 12 隊裡排第幾 ──
@@ -237,9 +259,9 @@ function draftReport(g) {
   const diff = appS != null ? Math.round(((mineS - appS) / appS) * 100) : null;
   return `<div class="card report"><h3 class="first">選秀成績單</h3>
     <button type="button" class="btn primary" data-act="report-ok" style="width:100%;margin:6px 0 4px">開始第 1 週</button>
-    <div class="kpis"><div><b>${rank}</b><span>12 隊實力排名</span></div><div><b>${Math.round(mineS)}</b><span>先發實力分</span></div><div><b>${diff == null ? '-' : `${diff > 0 ? '+' : ''}${diff}%`}</b><span>比全照 App 選</span></div></div>
-    <p class="why1 lead">${rank <= 3 ? '紙上實力前段班，' : rank >= 9 ? '紙上實力偏弱，季中要靠撿人補，' : '紙上實力中段，'}${diff == null ? '' : diff >= 0 ? '你的選擇不輸 App 推薦。' : `比全照 App 推薦少 ${-diff}%。`}</p>
-    <h3>各類別在 12 隊排第幾</h3>${miniBars(catRows)}
+    <div class="kpis"><div><b>${rank}</b><span>12 隊裡排第幾</span></div><div><b>${Math.round(mineS)}</b><span>實力分數</span></div><div><b>${diff == null ? '-' : `${diff > 0 ? '+' : ''}${diff}%`}</b><span>跟 App 比</span></div></div>
+    <p class="why1 lead">${rank <= 3 ? '你的隊伍看起來很強，' : rank >= 9 ? '你的隊伍看起來偏弱，球季中要多撿人補強，' : '你的隊伍在中間，'}${diff == null ? '' : diff >= 0 ? '選得不比 App 差。' : `比全部照 App 選弱了 ${-diff}%。`}</p>
+    <h3>每一類在 12 隊裡排第幾</h3>${miniBars(catRows)}
     <div class="mn-actions"><button type="button" class="btn" data-act="report-ok">開始第 1 週</button></div></div>`;
 }
 
@@ -253,7 +275,7 @@ function renderWeek() {
     const s = myScore(last.myGame);
     lastHtml = `<div class="card"><h3 class="first">第 ${last.week} 週結果 vs ${esc(g.names[s.opp])}：<span class="res ${resCls(s.w, s.l)}" style="font-weight:800">${s.w}-${s.l}-${s.t} ${resTxt(s.w, s.l)}</span></h3>
       <div class="mn-cats">${s.cats.map(([c, r]) => `<span class="tag ${r === 'win' ? 'good' : r === 'loss' ? 'bad' : 'warn'}">${esc(CAT_LABEL[c])}</span>`).join('')}</div>
-      ${last.pred ? `<div class="muted small">賽前預估 ${last.pred.predWin} 類領先、${last.pred.predLoss} 類落後｜這週猜中 ${last.pred.hit}/${last.pred.n} 類</div>` : ''}</div>`;
+      ${last.pred ? `<div class="muted small">比賽前 App 猜你 ${last.pred.predWin} 類贏、${last.pred.predLoss} 類輸｜猜對 ${last.pred.hit}/${last.pred.n} 類</div>` : ''}</div>`;
   } else if (last?.type === 'playoff') {
     lastHtml = `<div class="card"><h3 class="first">第 ${last.week} 週季後賽結果</h3>${last.games.map((m) => `<div class="sumline">${esc(m.label)}：${esc(g.names[m.a])} ${m.res.w}-${m.res.l}-${m.res.t} ${esc(g.names[m.b])} → <b>${esc(g.names[m.winner])}</b> 晉級${m.winner === g.mySlot ? ' 🎉' : m.a === g.mySlot || m.b === g.mySlot ? ' 😢' : ''}</div>`).join('')}</div>`;
   }
@@ -261,10 +283,10 @@ function renderWeek() {
   const rec = g.rec[g.mySlot];
   const isPO = g.phase === 'playoffs';
   const head = `<div class="card"><h3 class="first">${isPO ? '季後賽・' : ''}第 ${pv.week} 週${pv.dates ? `<span class="muted small">（重播 ${esc(pv.dates.start.slice(5))}～${esc(pv.dates.end.slice(5))}）</span>` : ''}</h3>
-    <div class="sumline">戰績 ${rec.mw}-${rec.ml}｜排名第 ${g.myRank()}｜整季換人剩 ${g.budget} 次</div>
-    <div class="sumline">${pv.opp != null ? `本週對手：<b>${esc(g.names[pv.opp])}</b>` : isPO ? (g.seeds.indexOf(g.mySlot) <= 1 && pv.week === 24 ? '你是前兩種子，這週輪空 😎' : '你已經被淘汰，接下來看別人打') : ''}</div>
-    ${pv.cats ? `<div class="mn-cats" style="margin-top:6px">${pv.cats.map((c) => `<span class="tag ${probCls(c.prob)}">${esc(c.label)} ${Math.round(c.prob * 100)}%</span>`).join('')}</div>
-      <div class="muted small">預估勝率：${pv.cats.filter((c) => c.prob > 0.5).length} 類領先、${pv.cats.filter((c) => c.prob < 0.5).length} 類落後｜你的弱項：${pv.weak.map(esc).join('、')}</div>` : ''}</div>`;
+    <div class="sumline">戰績 ${rec.mw} 勝 ${rec.ml} 敗｜第 ${g.myRank()} 名｜今年還能換 ${g.budget} 次人</div>
+    <div class="sumline">${pv.opp != null ? `本週對手：<b>${esc(g.names[pv.opp])}</b>` : isPO ? (g.seeds.indexOf(g.mySlot) <= 1 && pv.week === 24 ? '你是前兩名，這週直接晉級、不用打 😎' : '你被淘汰了，接下來看別人打') : ''}</div>
+    ${pv.cats ? `<div class="sumline">App 猜這週：<b class="good-text">${pv.cats.filter((c) => c.prob > 0.5).length} 類贏</b>、<b class="bad-text">${pv.cats.filter((c) => c.prob < 0.5).length} 類輸</b>｜你比較弱：${pv.weak.map(esc).join('、')}</div>
+      <details class="sub"><summary>看 18 類各自的贏面</summary><div class="mn-cats" style="margin-top:6px">${pv.cats.map((c) => `<span class="tag ${probCls(c.prob)}">${esc(c.label)} ${Math.round(c.prob * 100)}%</span>`).join('')}</div></details>` : ''}</div>`;
 
   pv.injuredIds = new Set(pv.injured.map((p) => p.id));
   const dropSel = (side, forId) => {
@@ -272,13 +294,13 @@ function renderWeek() {
       .map((p) => { const h = forId != null && pv.holesIf(forId, p.id) > 0; return `<option value="${p.id}">丟 ${esc(p.name)}${h ? '（會空出守位）' : ''}</option>`; }).join('');
     return (pv.room > 0 ? '<option value="">不丟（有空位）</option>' : '') + opts;
   };
-  const ilCard = (pv.injured.length || pv.il.length || pv.room > 0) ? `<div class="card"><h3 class="first">🩹 傷兵與 IL（${2 - pv.ilFree}/2 格）</h3>
-    ${pv.injured.map((p) => `<div class="mn-row"><div><b>${esc(p.name)}</b> <span class="pos">${esc(p.pos)}</span> <span class="tag bad">連兩週沒上場</span></div>
-      ${pv.ilFree > 0 ? `<button type="button" class="btn" data-il="${p.id}">移到 IL</button>` : '<span class="muted small">IL 已滿</span>'}</div>`).join('')}
-    ${pv.il.map((x) => `<div class="mn-row"><div><span class="slot">IL</span> <b>${esc(x.p.name)}</b> ${x.healthy ? '<span class="tag good">已歸隊上場</span>' : '<span class="tag">還在養傷</span>'}
+  const ilCard = (pv.injured.length || pv.il.length || pv.room > 0) ? `<div class="card"><h3 class="first">🩹 受傷的人（傷兵格用了 ${2 - pv.ilFree}/2）</h3><div class="muted small">放進傷兵格的人不佔名額，可以多撿一個健康的人。</div>
+    ${pv.injured.map((p) => `<div class="mn-row"><div><b>${esc(p.name)}</b> <span class="pos">${esc(p.pos)}</span> <span class="tag bad">受傷（兩週沒上場）</span></div>
+      ${pv.ilFree > 0 ? `<button type="button" class="btn" data-il="${p.id}">放進傷兵格</button>` : '<span class="muted small">傷兵格滿了</span>'}</div>`).join('')}
+    ${pv.il.map((x) => `<div class="mn-row"><div><span class="slot">IL</span> <b>${esc(x.p.name)}</b> ${x.healthy ? '<span class="tag good">傷好了</span>' : '<span class="tag">還在養傷</span>'}
       ${x.healthy && pv.room <= 0 ? `<div><select class="mn-drop" data-unildrop="${x.p.id}">${dropSel(x.p.side, null)}</select></div>` : ''}</div>
       ${x.healthy ? `<button type="button" class="btn" data-unil="${x.p.id}">回到陣容</button>` : ''}</div>`).join('')}
-    ${pv.room > 0 ? `<div class="sumline">陣容有 <b>${pv.room}</b> 個空位，可以直接撿人、不用丟人。</div>` : ''}</div>` : '';
+    ${pv.room > 0 ? `<div class="sumline">隊上還有 <b>${pv.room}</b> 個空位，可以直接撿人，不用丟掉誰。</div>` : ''}</div>` : '';
   let bracketHtml = '';
   if (isPO) {
     const sd = g.seeds;
@@ -286,34 +308,34 @@ function renderWeek() {
     bracketHtml = `<div class="card"><h3 class="first">🏟 季後賽對戰表</h3><div class="sumline">你是第 <b>${sd.indexOf(g.mySlot) + 1}</b> 種子（1、2 種子第 24 週輪空）</div>
       <div class="muted small">種子：${sd.slice(0, 6).map((t, i) => `${i + 1}. ${esc(g.names[t])}`).join('　')}</div>${rows}</div>`;
   }
-  const sugg = `<div class="card"><h3 class="first">撿人建議（整隊每週預估多贏幾類）</h3>
+  const sugg = `<div class="card"><h3 class="first">建議撿誰</h3>
     ${pv.options.length ? pv.options.map((o) => `<div class="mn-row"><div>撿 <b>${esc(o.add.name)}</b> <span class="pos">${esc(o.add.pos)}</span>${o.add.rookie ? ' <span class="tag warn">新人</span>' : ''} ${o.drop ? `丟 ${esc(o.drop.name)}` : '（補空位，不用丟人）'}
-        <div class="sub">${esc(recentLine(pv.recent(o.add), o.add))}</div><div class="note">每週多贏 ${o.gain.toFixed(2)} 類</div></div>
-        <button type="button" class="btn" data-move="${o.add.id}:${o.drop?.id ?? ''}">撿</button></div>`).join('') : '<p class="muted small">自由球員裡目前沒有能讓你變強的人。</p>'}
-    ${pv.options.length ? '<div class="mn-actions"><button type="button" class="btn" data-act="auto-moves">照建議撿（最多 2 人）</button></div>' : ''}</div>`;
+        <div class="sub">${esc(recentLine(pv.recent(o.add), o.add))}</div><div class="note">撿他，每週大約多贏 ${o.gain.toFixed(1)} 類</div></div>
+        <button type="button" class="btn" data-move="${o.add.id}:${o.drop?.id ?? ''}">撿</button></div>`).join('') : '<p class="muted small">現在沒有比你隊上更好的人可以撿，這週不用換。</p>'}
+    ${pv.options.length ? '<div class="mn-actions"><button type="button" class="btn" data-act="auto-moves">照 App 建議撿（最多 2 人）</button></div>' : ''}</div>`;
 
   const fa = g.searchFA(st.faQ, st.faSide);
-  const manual = `<details class="card"><summary>自己找人撿</summary>
-    <div class="toolbar" style="margin-top:8px"><input id="mn-faq" type="search" placeholder="搜尋自由球員" value="${esc(st.faQ)}">
+  const manual = `<details class="card"><summary>自己找人撿</summary><div class="muted small">選一個要丟掉的人，再按「撿」。</div>
+    <div class="toolbar" style="margin-top:8px"><input id="mn-faq" type="search" placeholder="打名字找人" value="${esc(st.faQ)}">
       <select id="mn-faside"><option value="" ${st.faSide === '' ? 'selected' : ''}>全部</option><option value="B" ${st.faSide === 'B' ? 'selected' : ''}>打者</option><option value="P" ${st.faSide === 'P' ? 'selected' : ''}>投手</option></select></div>
     ${fa.slice(0, 20).map((p) => `<div class="mn-row"><div><b>${esc(p.name)}</b> <span class="pos">${esc(p.pos)}</span>${p.rookie ? ' <span class="tag warn">新人</span>' : ''}<div class="sub">${esc(recentLine(pv.recent(p), p))}</div>
         <select class="mn-drop" data-dropfor="${p.id}">${dropSel(p.side, p.id)}</select></div>
         <button type="button" class="btn" data-manual="${p.id}">撿</button></div>`).join('')}</details>`;
 
   const starters = pv.lineup.filter((x) => x.p);
-  const lu = `<details class="card" ${st.openLineup ? 'open' : ''} id="mn-lu-box"><summary>本週先發（預設照近況自動排）</summary>
+  const lu = `<details class="card" ${st.openLineup ? 'open' : ''} id="mn-lu-box"><summary>這週誰上場（App 已經照手感排好，想改再打開）</summary>
     ${starters.map((x) => `<div class="mn-row mn-lu"><div><span class="slot">${esc(x.slot)}</span> <b>${esc(x.p.name)}</b> ${formTag(pv, x.p)}</div>
       <button type="button" class="btn" data-lu="${x.p.id}:bench">坐板凳</button></div>`).join('')}
     ${pv.bench.map((p) => `<div class="mn-row mn-lu bench"><div><span class="slot">板凳</span> <b>${esc(p.name)}</b> <span class="pos">${esc(p.pos)}</span> ${formTag(pv, p)}</div>
       <button type="button" class="btn" data-lu="${p.id}:start">上先發</button></div>`).join('')}
-    <div class="mn-actions"><button type="button" class="btn" data-act="lu-reset">照近況自動排</button></div></details>`;
+    <div class="mn-actions"><button type="button" class="btn" data-act="lu-reset">讓 App 重新排</button></div></details>`;
 
-  const standHtml = stand ? `<details class="card"><summary>排名</summary><table class="tbl"><tbody>${stand.map((x, i) => `<tr class="${x.team === g.mySlot ? 'me' : ''} ${i === 5 ? 'cut' : ''}"><td>${i + 1}</td><td>${esc(g.names[x.team])}</td><td>${x.w}-${x.l}-${x.t}</td><td>${x.mw}-${x.ml}</td></tr>`).join('')}</tbody></table></details>` : '';
+  const standHtml = stand ? `<details class="card"><summary>聯盟排名</summary><table class="tbl"><tbody>${stand.map((x, i) => `<tr class="${x.team === g.mySlot ? 'me' : ''} ${i === 5 ? 'cut' : ''}"><td>${i + 1}</td><td>${esc(g.names[x.team])}</td><td>${x.w}-${x.l}-${x.t}</td><td>${x.mw}-${x.ml}</td></tr>`).join('')}</tbody></table></details>` : '';
 
   const out = isPO && pv.opp == null && !(g.seeds.indexOf(g.mySlot) <= 1 && pv.week === 24);
   const bar = out
     ? `<button type="button" class="btn primary" data-act="play">▶ 看下一週</button><button type="button" class="btn" data-act="auto-rest">⏭ 看結果</button>`
-    : `<button type="button" class="btn primary" data-act="play">▶ 開打</button>${pv.opp != null ? '<button type="button" class="btn" data-act="auto-play">照建議打</button>' : ''}<button type="button" class="btn" data-act="auto-rest">⏭ 全自動</button>`;
+    : `<button type="button" class="btn primary" data-act="play">▶ 打這一週</button>${pv.opp != null ? '<button type="button" class="btn" data-act="auto-play">照 App 建議打</button>' : ''}<button type="button" class="btn" data-act="auto-rest">⏭ 自動打完</button>`;
   $('#mn-body').innerHTML = lastHtml + bracketHtml + head + (pv.opp != null ? ilCard + sugg + manual + lu : '') + standHtml + `
     <div class="mn-sticky"><div class="mn-bar">${bar}</div></div>`;
 }
@@ -366,19 +388,25 @@ export function initManual({ getSelection, getSeason, getProfiles }) {
   $('#mn-continue').addEventListener('click', continueGame);
   const body = $('#mn-body');
   body.addEventListener('click', (e) => {
-    const b = e.target.closest('button');
-    // 點球員那一列（不是按鈕）→ 詳情卡
-    const card = !b && e.target.closest('[data-card]');
-    if (card && st.g?.phase === 'draft') {
-      const id = Number(card.dataset.card);
-      const p = st.g.draftOptions().recommended.find((x) => x.id === id) ?? st.g.avail.get(id);
-      if (p) openPlayerCard(p, { season: st.prep.season - 1, lead: p.recReasons ? recSentence(p) : undefined, actions: [{ label: '選他', primary: true, run: () => draftWithUndo(() => st.g.draftPick(id), p.name) }] });
-      return;
+    // 模擬選秀：ⓘ＝詳情卡；點整列＝選他
+    if (st.g?.phase === 'draft') {
+      const info = e.target.closest('[data-card]');
+      if (info) {
+        const id = Number(info.dataset.card);
+        const p = st.g.draftOptions().recommended.find((x) => x.id === id) ?? st.g.avail.get(id);
+        if (p) openPlayerCard(p, { season: st.prep.season - 1, lead: p.recReasons ? recSentence(p) : undefined, actions: [{ label: '選他', primary: true, run: () => draftWithUndo(() => st.g.draftPick(id), p.name) }] });
+        return;
+      }
+      const row = e.target.closest('.pick-row');
+      if (row && !e.target.closest('select, input')) {
+        const id = Number(row.dataset.pick);
+        return draftWithUndo(() => st.g.draftPick(id), st.g.avail.get(id)?.name);
+      }
     }
+    const b = e.target.closest('button');
     if (!b) return;
     const g = st.g;
     const top = () => window.scrollTo(0, 0);
-    if (b.dataset.pick) return draftWithUndo(() => g.draftPick(Number(b.dataset.pick)), g.avail.get(Number(b.dataset.pick))?.name);
     if (b.dataset.move) { const [a, d] = b.dataset.move.split(':'); return act(() => g.move(Number(a), d ? Number(d) : null)); }
     if (b.dataset.manual) { const d = body.querySelector(`[data-dropfor="${b.dataset.manual}"]`).value; return act(() => g.move(Number(b.dataset.manual), d ? Number(d) : null)); }
     if (b.dataset.il) return act(() => g.toIL(Number(b.dataset.il)));
@@ -393,6 +421,7 @@ export function initManual({ getSelection, getSeason, getProfiles }) {
     }
     const a = b.dataset.act;
     if (a === 'draft-rest') return draftWithUndo(() => g.autoDraftRest(), null);
+    if (a === 'draft-help') return draftHelp();
     if (a === 'report-ok') { st.showReport = false; render(); return top(); }
     if (a === 'auto-moves') return act(() => { const n = g.autoMoves(); if (!n) setTimeout(() => status('目前沒有值得換的人。'), 0); });
     if (a === 'lu-reset') return act(() => g.resetLineup());

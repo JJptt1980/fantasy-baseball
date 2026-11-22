@@ -121,7 +121,8 @@ function renderBoard() {
   const taken = Object.values(state.marks).filter((m) => m === 'taken').length;
   const at = lastFetched(state.season);
   const atTxt = at ? `｜MLB 數據 ${new Date(at).toLocaleDateString('zh-TW', { month: 'numeric', day: 'numeric' })} 抓的（${state.season} 季已結束就不再抓；季中一天最多抓一次）` : '';
-  $('#board-meta').textContent = `依 ${state.dataNote ?? `${state.season} 季`}（含 ${state.season - 1} 季判斷傷病）MLB 官方數據｜我選了 ${mine} 人、被選走 ${taken} 人｜「市」＝市場排名（${state.marketLabel ?? '自己估計'}）${state.adpNote ? `｜${state.adpNote}` : ''}｜往右滑＝我選、往左滑＝被選，點一下看詳情${atTxt}`;
+  $('#board-meta').textContent = `我選了 ${mine} 人、被選走 ${taken} 人｜往右滑＝我選、往左滑＝被選、點一下看詳細｜「市」＝別人大概第幾個選他`;
+  $('#board-src').textContent = `排名根據：${state.dataNote ?? `${state.season} 季成績`}｜「市」來源：${state.marketLabel ?? '自己估計'}${state.adpNote ? `｜${state.adpNote}` : ''}${atTxt}`;
 }
 
 // ── 標記（震動＋可復原） ──
@@ -259,6 +260,7 @@ function bind() {
 const PAGES = ['today', 'draft', 'pickup', 'live', 'more', 'demo'];
 function showTab(tab) {
   if (!PAGES.includes(tab)) tab = 'today';
+  document.getElementById('toast')?.classList.remove('show'); // 換頁就收起上一頁的「復原」
   // Demo 是「更多」底下的子頁
   const bar = tab === 'demo' ? 'more' : tab;
   document.querySelectorAll('.tb').forEach((b) => b.classList.toggle('active', b.dataset.tab === bar));
@@ -294,17 +296,17 @@ function renderToday() {
   const strat = $('#strategy-summary')?.textContent.replace(/^：/, '') ?? '';
   const cards = [];
   if (m >= 4 && m <= 9) {
-    cards.push(`<div class="today-card"><div class="k">本週對戰</div><div class="hero">即時比分</div><div class="muted small">18 類誰領先、今天誰在打、週末預估</div>
+    cards.push(`<div class="today-card"><div class="k">本週對戰</div><div class="hero">即時比分</div><div class="muted small">這週 18 類誰贏誰輸、今天誰有比賽</div>
       <div class="acts"><button type="button" class="btn primary" data-goto="live">看本週對戰</button><button type="button" class="btn" data-goto="pickup">撿人建議</button></div></div>`);
   } else if (m >= 2 && m <= 3) {
-    cards.push(`<div class="today-card"><div class="k">選秀季</div><div class="hero">準備選秀</div><div class="muted small">選秀當天打開「選秀即時同步」，App 會自動標記並在快輪到你時震動提醒</div>
+    cards.push(`<div class="today-card"><div class="k">選秀季</div><div class="hero">準備選秀</div><div class="muted small">選秀那天打開「選秀即時同步」，App 會幫你劃掉被選走的人，快輪到你時手機會震動</div>
       <div class="acts"><button type="button" class="btn primary" data-goto="draft" data-open="ds-box">選秀即時同步</button><button type="button" class="btn" data-goto="draft">選秀表</button></div></div>`);
   } else {
     const y = m >= 10 ? new Date().getFullYear() + 1 : new Date().getFullYear();
-    cards.push(`<div class="today-card"><div class="k">休賽季</div><div class="hero">${y} 選秀</div><div class="muted small">大約 3 月下旬｜選秀方向：${esc(strat || '均衡＋輕度偏好')}</div>
+    cards.push(`<div class="today-card"><div class="k">休賽季</div><div class="hero">${y} 選秀</div><div class="muted small">大約 3 月下旬選秀｜現在可以先看選秀表、玩模擬</div>
       ${next.length ? `<div class="sumline" style="margin-top:8px">選秀表前 3 名：${next.map((p) => `<b>${esc(p.name)}</b>`).join('、')}</div>` : ''}
       <div class="acts"><button type="button" class="btn primary" data-goto="draft">看選秀表</button><button type="button" class="btn" data-goto="demo">模擬 ${y}</button></div></div>`);
-    cards.push(`<div class="today-card"><div class="k">複習</div><div class="sumline">重播 ${y - 1} 任一週的即時對戰，或練習選秀同步</div>
+    cards.push(`<div class="today-card"><div class="k">練習</div><div class="sumline">重看去年任何一週的比賽，或練習選秀那天怎麼用</div>
       <div class="acts"><button type="button" class="btn" data-goto="live">重播 ${y - 1}</button><button type="button" class="btn" data-goto="draft" data-open="ds-box">練習同步</button></div></div>`);
   }
   $('#today').innerHTML = cards.join('');

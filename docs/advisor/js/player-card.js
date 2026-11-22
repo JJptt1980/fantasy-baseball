@@ -12,8 +12,8 @@ export function reasonOf(p) {
   const top = Object.entries(p.z ?? {}).filter(([, z]) => z > 0.5).sort((a, b) => b[1] - a[1]).slice(0, 2);
   let t = top.length ? top.map(([c, z]) => `${NICE[c]}前 ${topPct(z)}%`).join('、') : '各類別都在平均附近，沒有明顯強項';
   const notes = p.notes ?? [];
-  const plus = notes.find((n) => /上升|進步|反彈|可能變好/.test(n));
-  const risk = notes.find((n) => /傷兵名單|不足|避開|偏大|保送|退步|可能變差/.test(n));
+  const plus = notes.find((n) => /還在進步|進步很多|反彈|可能變好/.test(n));
+  const risk = notes.find((n) => /傷兵名單|受傷|少選|偏大|保送|退步|可能變差/.test(n));
   if (plus) t += `，${plus}`;
   if (risk) t += `；注意：${risk}`;
   return t;

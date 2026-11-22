@@ -139,7 +139,7 @@ function render(res, ctx) {
 
   $('#lv-cats').hidden = false;
   // 18 類別：每類一條「我 vs 對手」迷你長條（紫色＝我的占比），右邊是週末勝率
-  $('#lv-cats').innerHTML = `<div class="lvc-head"><span>左：我</span><span>長條＝本週至今我方占比（中線＝五五波）</span><span>右：對手</span></div>
+  $('#lv-cats').innerHTML = `<div class="lvc-head"><span>左：我</span><span>綠＝我贏、紅＝我輸</span><span>右：對手</span></div>
     ${res.cats.map((c) => {
       const sh = share(c.cat, c.me, c.opp);
       return `<div class="lvc ${c.now}">
@@ -150,7 +150,7 @@ function render(res, ctx) {
       <span class="tag ${probCls(c.prob)}">週末${probTxt(c.prob)} ${Math.round(c.prob * 100)}%</span>
       <span class="lvc-p">預估 ${fmtVal(c.cat, c.meProj)}／${fmtVal(c.cat, c.oppProj)}</span></div>`;
     }).join('')}
-    <p class="muted small">長條顏色：綠＝目前領先、紅＝落後、橘＝平手（ERA、WHIP、K、BB、L 越低越好，已反過來算）；「預估」＝再加上剩餘比賽 × 最近 14 天表現。只算先發格子的球員。</p>`;
+    <p class="muted small">長條是「到今天為止」：綠＝我贏、紅＝我輸、橘＝平手（ERA、WHIP 這種越低越好的已經幫你反過來算）。「預估」是把剩下的比賽也算進去，猜週末的結果。</p>`;
 
   const row = (p) => {
     const g = p.today.game;

@@ -166,13 +166,13 @@ function renderFocus() {
   const { s, recs } = st.ctx;
   const now = s.picksUntil === 0;
   const big = s.done ? '✅' : s.picksUntil == null ? '?' : now ? '輪到你' : s.picksUntil;
-  const sub = s.done ? '選秀結束' : s.picksUntil == null ? '還不知道你的順位' : now ? `總第 ${s.myNext} 位` : `順位後輪到你（總第 ${s.myNext} 位）`;
+  const sub = s.done ? '選秀結束' : s.picksUntil == null ? '還不知道你第幾個選' : now ? `總第 ${s.myNext} 位` : `個人後輪到你`;
   const last = s.made.slice(-3).reverse();
   box.innerHTML = `
     <div class="fc-top"><span class="muted small">第 ${s.done ? ROUNDS : Math.ceil(s.nextOverall / TEAMS)} 輪｜已選 ${s.made.length}/${TEAMS * ROUNDS}</span><button type="button" class="btn" id="ds-focus-close">離開</button></div>
     <div class="fc-hero ${now ? 'now' : ''}"><div class="fc-n">${big}</div><div class="fc-s">${esc(sub)}</div></div>
     ${now ? '<button type="button" class="btn primary fc-room" id="ds-room">打開 Yahoo 選秀室</button>' : ''}
-    ${recs.length ? `<h3>推薦</h3>${recs.map((r, i) => `<div class="fc-rec"><div class="fc-i">${i + 1}</div><div><div class="fc-name">${esc(r.p.name)} <span class="pos">${esc(r.p.pos)}</span></div><div class="muted small">${r.reasons.map(esc).join('、')}</div></div></div>`).join('')}` : ''}
+    ${recs.length ? `<h3>App 建議選</h3>${recs.map((r, i) => `<div class="fc-rec"><div class="fc-i">${i + 1}</div><div><div class="fc-name">${esc(r.p.name)} <span class="pos">${esc(r.p.pos)}</span></div><div class="muted small">${r.reasons.map(esc).join('、')}</div></div></div>`).join('')}` : ''}
     ${last.length ? `<h3>剛剛被選</h3>${last.map((m) => `<div class="sumline small">${m.overall}. ${esc(m.player?.name ?? m.name)}<span class="muted">｜${esc(m.team ?? '')}</span></div>`).join('')}` : ''}`;
 }
 function openFocus(on) {
@@ -230,27 +230,27 @@ function render() {
   const curRound = cur ? Math.ceil(cur / TEAMS) : ROUNDS;
   let banner = '';
   if (s.done) banner = '<div class="ds-banner">✅ 選秀結束</div>';
-  else if (!s.slot) banner = '<div class="ds-banner warn">還不知道你的順位：請在上面選「你的順位」，或等你第 1 輪選完會自動偵測。</div>';
-  else if (s.picksUntil === 0) banner = `<div class="ds-banner now"><span>⏰ 輪到你了！（總第 ${s.myNext} 位）</span><button type="button" class="btn primary" id="ds-room">打開 Yahoo 選秀室</button></div>`;
-  else banner = `<div class="ds-banner"><span>還差 <b>${s.picksUntil}</b> 順位輪到你（總第 ${s.myNext} 位，約 ${s.picksUntil} 分鐘）</span></div>`;
+  else if (!s.slot) banner = '<div class="ds-banner warn">還不知道你第幾個選：在上面選「你第幾個選」，或等你第 1 輪選完，App 會自己知道。</div>';
+  else if (s.picksUntil === 0) banner = `<div class="ds-banner now"><span>⏰ 輪到你了！</span><button type="button" class="btn primary" id="ds-room">打開 Yahoo 選秀室</button></div>`;
+  else banner = `<div class="ds-banner"><span>再 <b>${s.picksUntil}</b> 個人就輪到你（大約 ${s.picksUntil} 分鐘）</span></div>`;
 
   const open = openSlots(s.mine);
   const cnt = open.reduce((m, x) => ((m[x] = (m[x] ?? 0) + 1), m), {});
   const missing = Object.entries(cnt).map(([k, n]) => (n > 1 ? `${k}×${n}` : k)).join('、');
 
-  const recHtml = recs.length ? `<h3>前 3 推薦</h3>${recs.map((r, i) => `<div class="mn-row"><div><b>${i + 1}. ${esc(r.p.name)}</b> <span class="pos">${esc(r.p.pos)}</span>
+  const recHtml = recs.length ? `<h3>App 建議選</h3>${recs.map((r, i) => `<div class="mn-row"><div><b>${i + 1}. ${esc(r.p.name)}</b> <span class="pos">${esc(r.p.pos)}</span>
       <div class="mn-cats">${r.reasons.map((x) => `<span class="tag">${esc(x)}</span>`).join('')}</div></div></div>`).join('')}` : '';
-  const predHtml = atMine && s.picksUntil > 0 ? `<details class="sub"><summary>輪到你時大概還剩誰（假設別人照市場排名選）</summary>
+  const predHtml = atMine && s.picksUntil > 0 ? `<details class="sub"><summary>輪到你時，大概還剩誰？</summary>
       <div class="sumline">應該還在：${atMine.stay.slice(0, 6).map((p) => esc(p.name)).join('、')}</div>
-      <div class="sumline muted">大概會被搶走：${atMine.gone.sort((a, b) => a.rank - b.rank).slice(0, 6).map((p) => esc(p.name)).join('、') || '—'}</div></details>` : '';
-  const logHtml = st.practiceLog.length ? `<details class="sub"><summary>你的選擇 vs App 推薦（${st.practiceLog.length} 次）</summary>
+      <div class="sumline muted">可能被搶走：${atMine.gone.sort((a, b) => a.rank - b.rank).slice(0, 6).map((p) => esc(p.name)).join('、') || '—'}</div></details>` : '';
+  const logHtml = st.practiceLog.length ? `<details class="sub"><summary>你選的 vs App 建議的（${st.practiceLog.length} 次）</summary>
       ${st.practiceLog.map((x) => `<div class="sumline small">第 ${x.round} 輪：你選 <b>${esc(x.picked)}</b>｜App 推薦 ${x.recs.map(esc).join('、') || '—'}${x.recs.includes(x.picked) ? ' ✅' : ''}</div>`).join('')}</details>` : '';
 
   panel.innerHTML = `${banner}
-    ${s.done ? '' : '<button type="button" class="btn" id="ds-focus-open">⛶ 專注模式（全螢幕只看重點）</button>'}
-    ${st.source?.kind === 'replay' ? '<div class="muted small">練習中：選秀表上的標記是暫時的，按「停止」會還原。</div>' : ''}
-    <div class="sumline muted small">已選 ${s.made.length}/${TEAMS * ROUNDS}｜第 ${curRound} 輪｜你是第 ${s.slot ?? '?'} 順位｜你已選 ${s.mine.length} 人</div>
-    <div class="sumline">${open.length ? `還缺：<b>${esc(missing)}</b>` : '先發格子都有人了'}${s.mine.length ? `<span class="muted small">｜${s.mine.map((p) => esc(p.name)).join('、')}</span>` : ''}</div>
+    ${s.done ? '' : '<button type="button" class="btn" id="ds-focus-open">⛶ 放大模式（只看最重要的）</button>'}
+    ${st.source?.kind === 'replay' ? '<div class="muted small">練習中：選秀表上的劃記是暫時的，按「停止」就會恢復原狀。</div>' : ''}
+    <div class="sumline muted small">第 ${curRound} 輪｜你第 ${s.slot ?? '?'} 個選｜你已經選了 ${s.mine.length} 人</div>
+    <div class="sumline">${open.length ? `還缺：<b>${esc(missing)}</b>` : '上場位置都有人了'}${s.mine.length ? `<span class="muted small">｜${s.mine.map((p) => esc(p.name)).join('、')}</span>` : ''}</div>
     ${recHtml}${predHtml}${logHtml}
     ${s.unmatched.length ? `<div class="muted small">對不到選秀表的球員（多半是冷門或新人）：${s.unmatched.slice(-5).map(esc).join('、')}</div>` : ''}`;
 }

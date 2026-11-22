@@ -407,3 +407,19 @@ details.card, .card, #mn-recs { scroll-margin-top: 64px; }
   #tab-draft > .toolbar { position: static; }
   .large-title { font-size: 1.6rem; margin: 4px 0 8px; }
 }
+
+/* ── 模擬選秀：一列＝一位球員，點整列就是選他 ── */
+.draft-head .dh-turn { font-size: var(--fs-title); font-weight: 700; display: flex; justify-content: space-between; align-items: center; gap: 8px; }
+.help { border: 0; background: var(--accent-soft); color: var(--accent-text); border-radius: 999px; padding: 0 12px; min-height: 36px; font-size: var(--fs-sub); font-weight: 600; }
+.pick-row { display: grid; grid-template-columns: 1fr 44px; align-items: center; gap: 6px; padding: 10px 6px; border-bottom: 1px solid var(--border); border-radius: 10px; cursor: pointer; min-height: var(--tap); }
+.pick-row:active { background: var(--accent-soft); }
+.pick-row.top { background: var(--accent-soft); }
+.pick-row .info { border: 0; background: transparent; color: var(--accent-text); font-size: 1.35rem; width: 44px; height: 44px; border-radius: 50%; }
+.pick-row .info:active { background: var(--surface-2); }
+.steps { padding-left: 1.3em; margin: 8px 0 12px; display: grid; gap: 8px; line-height: 1.5; }
+.good-text { color: var(--good); }
+.bad-text { color: var(--bad); }
+.src-note summary { min-height: 32px; }
+/* 即時頁：日期一行左右滑，不要折成好幾行 */
+#lv-days { flex-wrap: nowrap; overflow-x: auto; -webkit-overflow-scrolling: touch; padding-bottom: 4px; }
+#lv-days .chip { flex: 0 0 auto; }
