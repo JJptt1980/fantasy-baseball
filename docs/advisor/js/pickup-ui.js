@@ -220,9 +220,9 @@ function renderBudget() {
   box.hidden = false;
   box.className = `card budget ${b.level}`;
   box.innerHTML = `
-    <div class="b-head"><b>換人額度</b><span>今年已換 <b>${b.used}</b> / ${b.cap}｜季後賽保留 ${b.reserve}</span></div>
+    <div class="b-head"><b>換人額度</b><span>今年已換 <b>${b.used}</b> / ${b.cap}${b.phase === 'over' ? '' : `｜季後賽保留 ${b.reserve}`}</span></div>
     <div class="b-bar" role="img" aria-label="已用 ${b.used} 次，上限 ${b.cap} 次">
-      <i style="width:${pct(b.used)}"></i><s style="left:${pct(b.cap - b.reserve)}"></s>
+      <i style="width:${pct(b.used)}"></i>${b.reserve ? `<s style="left:${pct(b.cap - b.reserve)}"></s>` : ''}
     </div>
     <div class="b-msg">${esc(budgetMessage(b))}</div>`;
 }
