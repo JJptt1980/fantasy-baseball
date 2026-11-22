@@ -320,6 +320,16 @@ export function createGame(players, { mySlot, profiles, seed, weekly }) {
       const dropped = g.moveLog.find((x) => x.dropId === m.add.id && x.week > m.week);
       return { ...m, total: total(m.add, m.week, dropped ? dropped.week : 26) };
     }).sort((a, b) => b.total - a.total);
+    // 換成「整季表現在所有球員中前幾 %」（同打者或同投手比）
+    const pool = [...g.teams.flat(), ...g.il, ...g.freeAgents.values()];
+    const tot = new Map(pool.map((p) => [p, total(p)]));
+    const pct = (p, v) => {
+      const same = pool.filter((x) => x.side === p.side).map((x) => tot.get(x)).sort((a, b) => b - a);
+      const rank = same.findIndex((x) => x <= v) + 1 || same.length;
+      return Math.max(1, Math.round((rank / same.length) * 100));
+    };
+    for (const x of [late, early]) if (x) x.pct = pct(x.player, x.total);
+    if (adds[0]) adds[0].pct = pct(adds[0].add, total(adds[0].add));
     const hit = g.preds.reduce((a, p) => a + p.hit, 0);
     const n = g.preds.reduce((a, p) => a + p.n, 0);
     return {

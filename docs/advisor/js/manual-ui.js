@@ -50,7 +50,7 @@ function updateContinue() {
   const plays = s.actions.filter((a) => a[0] === 'play').length;
   const picks = s.actions.filter((a) => a[0] === 'pick').length;
   btn.hidden = false;
-  btn.textContent = plays ? `⏯ 繼續上次（打到第 ${plays + 1} 週）` : `⏯ 繼續上次（選秀中，已選 ${picks} 人）`;
+  btn.textContent = plays >= 26 ? '📋 看上一季的結算' : plays ? `⏯ 繼續上次（打到第 ${plays + 1} 週）` : picks >= 25 || s.actions.some((a) => a[0] !== 'pick') ? '⏯ 繼續上次（選秀完成，從第 1 週開始）' : `⏯ 繼續上次（選秀中，已選 ${picks} 人）`;
 }
 
 async function newGame() {
@@ -260,9 +260,9 @@ function recapHtml(g) {
   else if (g.champ === g.mySlot) line.push(`以第 ${r.seed} 種子一路打到冠軍 🏆`);
   return `<div class="card"><h3 class="first">📋 本季回顧</h3>
     ${line.map((x) => `<div class="sumline">${x}</div>`).join('')}
-    ${r.steal ? `<div class="sumline">💎 選秀最賺：第 ${r.steal.round} 輪的 <b>${esc(r.steal.player.name)}</b>（整季價值 ${fmt(r.steal.total)}）</div>` : ''}
-    ${r.bust ? `<div class="sumline">💥 選秀最虧：第 ${r.bust.round} 輪的 <b>${esc(r.bust.player.name)}</b>（整季價值 ${fmt(r.bust.total)}）</div>` : ''}
-    ${r.bestAdd ? `<div class="sumline">🎯 最佳撿人：第 ${r.bestAdd.week + 1} 週撿的 <b>${esc(r.bestAdd.add.name)}</b>（在你隊上貢獻 ${fmt(r.bestAdd.total)}）</div>` : ''}
+    ${r.steal ? `<div class="sumline">💎 選秀最賺：第 ${r.steal.round} 輪的 <b>${esc(r.steal.player.name)}</b>（整季表現在所有${r.steal.player.side === 'B' ? '打者' : '投手'}中前 ${r.steal.pct}%）</div>` : ''}
+    ${r.bust ? `<div class="sumline">💥 選秀最虧：第 ${r.bust.round} 輪的 <b>${esc(r.bust.player.name)}</b>（整季表現只在所有${r.bust.player.side === 'B' ? '打者' : '投手'}中前 ${r.bust.pct}%）</div>` : ''}
+    ${r.bestAdd ? `<div class="sumline">🎯 最佳撿人：第 ${r.bestAdd.week + 1} 週撿的 <b>${esc(r.bestAdd.add.name)}</b>（整季表現在所有${r.bestAdd.add.side === 'B' ? '打者' : '投手'}中前 ${r.bestAdd.pct}%）</div>` : ''}
     ${r.accuracy != null ? `<div class="sumline">🔮 賽前預估命中率：${Math.round(r.accuracy * 100)}%（每類預估勝負跟實際對得上的比例，50% 等於亂猜）</div>` : ''}</div>`;
 }
 
@@ -306,7 +306,12 @@ export function initManual({ getSelection, getSeason, getProfiles }) {
     if (a === 'lu-reset') return act(() => g.resetLineup());
     if (a === 'play') return act(() => { st.openLineup = false; g.playWeek(); window.scrollTo(0, 0); });
     if (a === 'auto-play') return act(() => { g.autoMoves(); g.playWeek(); window.scrollTo(0, 0); });
-    if (a === 'auto-rest') return act(() => { g.autoRest(); top(); });
+    if (a === 'auto-rest') {
+      // 手機上要算十幾秒：先顯示提示、讓畫面更新，再開始算
+      status('自動打完剩下的球季中…（手機上大約 10～20 秒）');
+      body.querySelectorAll('button').forEach((x) => { x.disabled = true; });
+      return setTimeout(() => act(() => { g.autoRest(); top(); }), 50);
+    }
     if (a === 'new') { lsSet(LS_SAVE, null); st.g = null; render(); }
   });
   body.addEventListener('input', (e) => {
