@@ -3,6 +3,7 @@ import { runSeason, buildProfiles, TEAMS, ROUNDS } from './demo-sim.js';
 import { CAT_LABEL } from './pickup.js';
 import * as Y from './yahoo-source.js';
 import { seasonStats, toMaps } from './mlb.js';
+import { initManual } from './manual-ui.js';
 import { buildPlayers, board as rankBoard } from './rank.js';
 
 const $ = (s) => document.querySelector(s);
@@ -194,7 +195,15 @@ async function start(getConfig, season) {
   play();
 }
 
-export function initDemo({ getBoard, getConfig, getSeason }) {
+export function initDemo({ getBoard, getConfig, getSeason, getSelection }) {
+  initManual({ getSelection, getSeason, getProfiles: () => st.profiles?.list ?? null });
+  $('#demo-mode').addEventListener('click', (e) => {
+    const m = e.target.closest('button')?.dataset.mode;
+    if (!m) return;
+    document.querySelectorAll('#demo-mode button').forEach((b) => b.classList.toggle('on', b.dataset.mode === m));
+    $('#demo-manual').hidden = m !== 'manual';
+    $('#demo-auto').hidden = m !== 'auto';
+  });
   $('#demo-slot').insertAdjacentHTML('beforeend', Array.from({ length: TEAMS }, (_, i) => `<option value="${i}">第 ${i + 1} 順位</option>`).join(''));
   renderProfiles();
   $('#demo-run').addEventListener('click', () => start(getConfig, getSeason()));

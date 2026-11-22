@@ -10,7 +10,7 @@ const PIT_SLOTS = ['SP', 'SP', 'SP', 'SP', 'SP', 'SP', 'RP', 'RP', 'RP', 'P', 'P
 const SLOT_ORDER = { C: 0, SS: 1, '2B': 2, '3B': 3, '1B': 4, SP: 0, RP: 1, OF: 5, IF: 6, Util: 7, P: 8 };
 export const TEAMS = 12;
 export const ROUNDS = 25;
-const REG_WEEKS = 23;
+export const REG_WEEKS = 23;
 const WEEKS = 26;
 
 // ── 亂數（可重現） ──
@@ -42,15 +42,15 @@ export function rng(seed) {
 }
 
 // ── 守位 ──
-const posGroup = (p) => (p.side === 'P' ? p.pos : p.pos === 'C' ? 'C' : ['1B', '2B', '3B', 'SS'].includes(p.pos) ? 'IF' : p.pos === 'DH' ? 'DH' : 'OF');
-function fits(p, slot) {
+export const posGroup = (p) => (p.side === 'P' ? p.pos : p.pos === 'C' ? 'C' : ['1B', '2B', '3B', 'SS'].includes(p.pos) ? 'IF' : p.pos === 'DH' ? 'DH' : 'OF');
+export function fits(p, slot) {
   if (slot === 'Util') return p.side === 'B';
   if (slot === 'P') return p.side === 'P';
   if (slot === 'IF') return ['1B', '2B', '3B', 'SS'].includes(p.pos);
   if (slot === 'OF') return p.pos === 'OF';
   return p.pos === slot;
 }
-function assign(team, side) {
+export function assign(team, side) {
   const slots = side === 'B' ? BAT_SLOTS : PIT_SLOTS;
   const order = slots.map((_, i) => i).sort((a, b) => SLOT_ORDER[slots[a]] - SLOT_ORDER[slots[b]]);
   const filled = new Array(slots.length).fill(null);
@@ -66,7 +66,7 @@ export const lineup = (team) => [...assign(team, 'B').filled, ...assign(team, 'P
 
 // ── 對手選秀習慣（從真實選秀結果） ──
 const BUCKETS = [[1, 5], [6, 12], [13, 25]];
-const bucketOf = (round) => BUCKETS.findIndex(([a, b]) => round >= a && round <= b);
+export const bucketOf = (round) => BUCKETS.findIndex(([a, b]) => round >= a && round <= b);
 
 // history：leagueHistory() 結果 [{ season, picks, teams }]；players：選秀表（board）；myManagerId：自己
 // 依「經理人」跨年累積（隊名每年會換），越近的年份權重越高（每往前一年 ×0.85）
@@ -199,7 +199,7 @@ export function draft(players, { mySlot, profiles, r }) {
 
 // ── 一週數據 ──
 const FRAC = 1 / WEEKS;
-function weekStats(lu, r) {
+export function weekStats(lu, r) {
   const t = {};
   for (const c of CATS) t[c] = 0;
   let ab = 0; let h = 0; let opsW = 0; let pa = 0; let ip = 0; let er = 0; let wh = 0;
@@ -231,7 +231,7 @@ function weekStats(lu, r) {
   return t;
 }
 
-function match(a, b) {
+export function match(a, b) {
   let w = 0; let l = 0; let t = 0;
   const cats = {};
   for (const c of CATS) {
@@ -240,7 +240,7 @@ function match(a, b) {
   return { w, l, t, cats };
 }
 
-function schedule(r) {
+export function schedule(r) {
   let ids = r.shuffle([...Array(TEAMS).keys()]);
   const rounds = [];
   for (let k = 0; k < TEAMS - 1; k++) {
@@ -291,14 +291,14 @@ function weighted(side, parts) {
   return o;
 }
 
-const seasonWeekly = (p) => {
+export const seasonWeekly = (p) => {
   const q = { ...p };
   for (const k of ['AB', 'PA', 'R', 'H', 'HR', 'RBI', 'SB', 'BB', 'K', 'IP', 'W', 'L', 'SV', 'HLD', 'ER', 'WH', 'QS']) if (k in q) q[k] = (q[k] ?? 0) * FRAC;
   return q;
 };
 
 // 「近況」：最近 2 週與本季至今各半；開季第 1 週用季前預期（整季平均）
-function makeWorld(players, weekly) {
+export function makeWorld(players, weekly) {
   const rows = (p) => weekly?.players?.[`${p.side}${p.id}`]?.w;
   const actual = (p, w) => rowToLine(p.side, rows(p)?.[w]);
   const formCache = new Map();
@@ -340,44 +340,79 @@ function makeWorld(players, weekly) {
   return { actual, form, score, real: !!weekly };
 }
 
-// 依近況排先發
-function lineupW(team, world, w) {
-  for (const p of team) p._s = world.score(p, w);
-  const pick = (side) => {
+// 依近況排先發；overrides：Map(id → 'start' | 'bench') 手動指定
+export function lineupSlots(team, world, w, overrides = null) {
+  for (const p of team) {
+    const o = overrides?.get(p.id);
+    p._s = o === 'start' ? 1e9 + world.score(p, w) : o === 'bench' ? -1e9 + world.score(p, w) : world.score(p, w);
+  }
+  const out = [];
+  for (const side of ['B', 'P']) {
     const slots = side === 'B' ? BAT_SLOTS : PIT_SLOTS;
     const order = slots.map((_, i) => i).sort((a, b) => SLOT_ORDER[slots[a]] - SLOT_ORDER[slots[b]]);
     const used = new Set();
     const roster = team.filter((p) => p.side === side).sort((a, b) => b._s - a._s);
-    const out = [];
+    const filled = new Array(slots.length).fill(null);
     for (const i of order) {
-      const p = roster.find((x) => !used.has(x.id) && fits(x, slots[i]));
-      if (p) { out.push(p); used.add(p.id); }
+      // 手動放板凳的人不會被排進先發（除非該格完全沒人能補）
+      const p = roster.find((x) => !used.has(x.id) && fits(x, slots[i]) && overrides?.get(x.id) !== 'bench')
+        ?? roster.find((x) => !used.has(x.id) && fits(x, slots[i]));
+      if (p) { filled[i] = p; used.add(p.id); }
     }
-    return out;
-  };
-  return [...pick('B'), ...pick('P')];
+    slots.forEach((sl, i) => out.push({ slot: sl, p: filled[i] }));
+  }
+  return out;
 }
 
-function weekStatsReal(lu, world, w) {
+export function lineupW(team, world, w, overrides = null) {
+  return lineupSlots(team, world, w, overrides).map((x) => x.p).filter(Boolean);
+}
+
+export function weekStatsReal(lu, world, w) {
   const t = teamLine(lu.map((p) => world.actual(p, w)));
   if (!t.IP) { t['P:ERA'] = 99; t['P:WHIP'] = 99; }
   return t;
 }
 
 // 預估每週能贏幾類：每類用「領先一般球隊幾個單位」換成勝率再加總
-function expectedWins(team, typical, world, w) {
+export function expectedWins(team, typical, world, w) {
   const line = teamLine(lineupW(team, world, w).map((p) => world.form(p, w)));
   return CATS.reduce((a, c) => a + 1 / (1 + Math.exp(-1.7 * margin(c, line, typical) / scale(c, typical))), 0);
 }
 
-function swap(team, freeAgents, drop, add) {
+export function swap(team, freeAgents, drop, add) {
   team.splice(team.indexOf(drop), 1, add);
   freeAgents.delete(add.id);
   freeAgents.set(drop.id, drop);
 }
 
+// 撿人建議（不執行）：每個候選人配一個最適合丟掉的人，算整隊每週預估多贏幾類
+export function pickupOptions(teams, freeAgents, mySlot, world, w, { top = 12 } = {}) {
+  const myTeam = teams[mySlot];
+  const others = teams.filter((_, i) => i !== mySlot).map((t) => teamLine(lineupW(t, world, w).map((p) => world.form(p, w))));
+  const typical = {};
+  for (const c of CATS) typical[c] = others.reduce((a, l) => a + l[c], 0) / others.length;
+  const mine = teamLine(lineupW(myTeam, world, w).map((p) => world.form(p, w)));
+  const gaps = CATS.map((c) => [c, margin(c, mine, typical) / scale(c, typical)]);
+  const weak = [...gaps].sort((a, b) => a[1] - b[1]).slice(0, 3).map(([c]) => CAT_LABEL[c]);
+  const base = expectedWins(myTeam, typical, world, w);
+  const cands = [...freeAgents.values()].sort((a, b) => world.score(b, w) - world.score(a, w)).slice(0, top);
+  const options = [];
+  for (const add of cands) {
+    let best = null;
+    for (const drop of myTeam) {
+      if (drop.side !== add.side) continue;
+      const gain = expectedWins(myTeam.map((p) => (p === drop ? add : p)), typical, world, w) - base;
+      if (!best || gain > best.gain) best = { add, drop, gain };
+    }
+    if (best) options.push(best);
+  }
+  options.sort((a, b) => b.gain - a.gain);
+  return { weak, gaps, typical, options, base };
+}
+
 // 我方：試算「換人前後整隊每週預估多贏幾類」，有提升才換（每週最多 2 次）
-function pickupStep(teams, freeAgents, budget, mySlot, world, w) {
+export function pickupStep(teams, freeAgents, budget, mySlot, world, w) {
   const myTeam = teams[mySlot];
   const others = teams.filter((_, i) => i !== mySlot).map((t) => teamLine(lineupW(t, world, w).map((p) => world.form(p, w))));
   const typical = {};
@@ -409,7 +444,7 @@ function pickupStep(teams, freeAgents, budget, mySlot, world, w) {
 }
 
 // 對手：照各自每季換人次數，每週把近況最差的人換成近況最好的自由球員
-function aiMoves(teams, freeAgents, ai, mySlot, world, w, r) {
+export function aiMoves(teams, freeAgents, ai, mySlot, world, w, r) {
   let n = 0;
   teams.forEach((team, t) => {
     if (t === mySlot) return;
@@ -424,7 +459,7 @@ function aiMoves(teams, freeAgents, ai, mySlot, world, w, r) {
   return n;
 }
 
-function newcomers(players, weekly) {
+export function newcomers(players, weekly) {
   if (!weekly) return [];
   const known = new Set(players.map((p) => `${p.side}${p.id}`));
   const out = [];
@@ -489,7 +524,7 @@ export function runSeason(players, { mySlot, profiles, seed, teamNames, weekly =
   return { events, names, myTeam: d.teams[mySlot] };
 }
 
-function standings(rec) {
+export function standings(rec) {
   const pct = (x) => (x.w + 0.5 * x.t) / Math.max(1, x.w + x.l + x.t);
   return rec.map((x, team) => ({ team, ...x, pct: pct(x) })).sort((a, b) => b.pct - a.pct);
 }

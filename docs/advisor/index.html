@@ -109,6 +109,21 @@
     </section>
 
     <section id="tab-demo" hidden>
+      <div class="seg" id="demo-mode">
+        <button type="button" data-mode="manual" class="on">手動玩</button>
+        <button type="button" data-mode="auto">自動播放</button>
+      </div>
+      <div id="demo-manual">
+        <div class="card" id="mn-start">
+          <h2>手動玩 2027</h2>
+          <p class="muted small">你自己選秀、每週自己決定撿誰、排先發；App 在每一步給建議，也可以一鍵照建議做。選秀只用前一年成績，季中照最近一季真實逐週成績重播。會自動存檔，關掉 App 也能接著玩。</p>
+          <div class="two"><label>你的選秀順位<select id="mn-slot"><option value="">隨機</option></select></label><label>&nbsp;<button type="button" class="btn primary" id="mn-new">▶ 開始新賽季</button></label></div>
+          <div class="demo-btns"><button type="button" class="btn" id="mn-continue" hidden></button></div>
+        </div>
+        <div id="mn-status" class="status" hidden></div>
+        <div id="mn-body"></div>
+      </div>
+      <div id="demo-auto" hidden>
       <div class="card">
         <h2>虛擬跑一次 2027</h2>
         <p class="muted small">用你在「選秀」頁勾的方向，跟 11 個對手選秀 25 輪（只用開季前就知道的前一年成績），季中照最近一季<b>真實逐週成績</b>重播：手感冷熱、受傷、新人崛起都照實發生。你和對手每週都會換人，最後打季後賽。每次重跑選秀結果都不同。</p>
@@ -134,6 +149,7 @@
       <div id="demo-standings" class="card" hidden></div>
       <details id="demo-draft" class="card" hidden><summary>選秀結果</summary><div id="demo-draft-body"></div></details>
       <div id="demo-log" class="card" hidden></div>
+      </div>
     </section>
   </main>
 </body>

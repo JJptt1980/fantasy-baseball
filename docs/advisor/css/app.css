@@ -160,3 +160,17 @@ h3.first { margin-top: 0; }
 .lv th, .lv td { white-space: nowrap; padding: 6px 3px; font-size: 13px; }
 .lv .pill { min-width: 34px; padding: 2px 6px; }
 #lv-cats { overflow-x: auto; }
+
+/* ── 手動玩 ── */
+.mn-row { display: grid; grid-template-columns: 1fr auto; gap: 6px 8px; align-items: center; padding: 8px 0; border-bottom: 1px solid var(--border); }
+.mn-row .sub { font-size: 12px; color: var(--muted); }
+.mn-row .note { font-size: 12px; color: var(--warn); }
+.mn-row .btn { min-height: 36px; padding: 4px 12px; }
+.mn-slots { display: flex; flex-wrap: wrap; gap: 4px; }
+.mn-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; }
+.mn-actions .btn { flex: 1 1 140px; }
+.mn-cats { display: flex; flex-wrap: wrap; gap: 4px; }
+.mn-sticky { position: sticky; bottom: 0; background: var(--bg); padding: 8px 0 calc(env(safe-area-inset-bottom) + 8px); z-index: 5; }
+.mn-drop { width: auto; max-width: 150px; padding: 4px 6px; font-size: 13px; }
+.mn-lu .slot { display: inline-block; min-width: 36px; font-size: 12px; color: var(--muted); }
+.mn-lu.bench { opacity: .65; }
