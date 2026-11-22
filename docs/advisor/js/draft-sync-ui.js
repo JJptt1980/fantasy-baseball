@@ -95,7 +95,11 @@ function stop() {
   st.running = false;
   if (st.savedMarks) { st.setMarks(st.savedMarks); st.savedMarks = null; }
   if ($('#ds-focus') && !$('#ds-focus').hidden) openFocus(false);
+  // 停止後清掉舊的倒數與推薦，免得誤以為還在同步
+  st.ctx = null;
+  $('#ds-panel').innerHTML = '';
   renderButtons();
+  renderMeta();
 }
 
 async function tick() {
