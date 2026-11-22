@@ -21,6 +21,7 @@ public class MainActivity extends Activity {
     private static final String START = "https://" + HOST + "/assets/web/advisor/index.html";
 
     private WebView web;
+    private FileBridge files;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -43,6 +44,8 @@ public class MainActivity extends Activity {
 
         // 只有自己的頁面（assets）會載入這個 WebView，外部連結一律交給系統瀏覽器
         web.addJavascriptInterface(new YahooBridge(this, web), "AndroidBridge");
+        files = new FileBridge(this, web);
+        web.addJavascriptInterface(files, "FileBridge");
         android.webkit.CookieManager.getInstance().setAcceptCookie(true);
 
         web.setWebViewClient(new WebViewClient() {
@@ -96,6 +99,7 @@ public class MainActivity extends Activity {
     @Override
     protected void onActivityResult(int requestCode, int resultCode, Intent data) {
         super.onActivityResult(requestCode, resultCode, data);
+        if (files != null && files.onResult(requestCode, resultCode, data)) return;
         if (requestCode == YahooBridge.LOGIN_REQUEST && resultCode == RESULT_OK) {
             web.evaluateJavascript("window.__onYahooLogin && window.__onYahooLogin()", null);
         }

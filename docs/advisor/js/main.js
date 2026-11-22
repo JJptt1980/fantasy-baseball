@@ -5,7 +5,8 @@ import * as Y from './yahoo-source.js';
 import { buildPlayers, board } from './rank.js';
 import { BASE, STRATEGIES, PREFS, buildConfig } from './strategies.js';
 import { initPickup } from './pickup-ui.js';
-import { initDemo } from './demo-ui.js';
+import { initDemo, reloadProfiles } from './demo-ui.js';
+import * as PACK from './pack.js';
 import { initLive } from './live-ui.js';
 import { initDraftSync } from './draft-sync-ui.js';
 import { haptic, toast, swipeRows, pullToRefresh, skeleton, sheet } from './ui-kit.js';
@@ -155,7 +156,11 @@ function openSources() {
     <input id="fp-key" type="password" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="${has ? '已存（要換再貼新的）' : '從 Email 複製金鑰貼在這裡'}">
     <p class="muted small">只存在這支手機的 App 裡，不會上傳到其他地方。免費版每天 50 次（App 一天用 2 次），回傳可能被截短。</p>
     <div class="sh-acts"><button type="button" class="btn primary" data-src="save">儲存並測試</button>${has ? '<button type="button" class="btn" data-src="test">測試</button><button type="button" class="btn" data-src="clear">刪除金鑰</button>' : ''}</div>
-    <div id="fp-result" class="sumline" style="margin-top:10px"></div>`);
+    <div id="fp-result" class="sumline" style="margin-top:10px"></div>
+    <h3>📦 資料包（換手機、兩支手機同步用）</h3>
+    <p class="muted small">把這支手機的資料存成一個檔案，到另一支手機「從檔案匯入」就一樣了。包含：${Object.values(PACK.PACK_KEYS).join('、')}。不含 FantasyPros 金鑰。</p>
+    <div class="sh-acts"><button type="button" class="btn" data-src="export">匯出成檔案</button><button type="button" class="btn" data-src="import">從檔案匯入</button></div>
+    <div id="pack-result" class="sumline" style="margin-top:8px"></div>`);
   const out = box.querySelector('#fp-result');
   const test = async () => {
     out.textContent = '連線 FantasyPros 中…';
@@ -171,6 +176,22 @@ function openSources() {
     if (a === 'save') { const v = box.querySelector('#fp-key').value.trim(); if (!v && !has) { out.textContent = '請先貼上金鑰'; return; } if (v) ADP.fpKey.set(v); box.querySelector('#fp-key').value = ''; test(); }
     if (a === 'test') test();
     if (a === 'clear') { ADP.fpKey.set(''); out.textContent = '已刪除金鑰'; loadAdp(); }
+    const pr = box.querySelector('#pack-result');
+    if (a === 'export') {
+      window.__onFileSaved = (ok) => { pr.textContent = ok ? '✅ 已存好檔案' : '沒有存檔（取消了或存不進去）'; haptic(ok ? 'success' : 'warn'); };
+      if (PACK.exportPack() === 'browser') pr.textContent = '✅ 已下載檔案';
+    }
+    if (a === 'import') {
+      PACK.pickPackText().then((text) => {
+        if (!text) { pr.textContent = '沒有選檔案'; return; }
+        try {
+          const done = PACK.applyPack(JSON.parse(text));
+          pr.textContent = `✅ 匯入 ${done.length} 項：${done.map((k) => PACK.PACK_KEYS[k]).join('、')}。重新整理中…`;
+          haptic('success');
+          setTimeout(() => location.reload(), 1200);
+        } catch (err) { pr.textContent = `❌ ${err.message === 'Unexpected end of JSON input' ? '檔案壞掉了' : err.message}`; haptic('error'); }
+      });
+    }
   });
 }
 
@@ -272,6 +293,7 @@ function showTab(tab) {
   if (tab === 'live') live?.onShow();
   if (tab === 'pickup') pickup?.onShow();
   if (tab === 'today') renderToday();
+  if (tab === 'demo') document.dispatchEvent(new Event('demo:shown'));
   lsSet(LS.tab, tab);
 }
 
@@ -384,6 +406,8 @@ initDraftSync({
 live = initLive({ getBoard: () => state.ranked, weeklyUrl: `data/weekly-${lastSeason()}.json` });
 initDemo({ getBoard: () => state.ranked, getConfig: () => buildConfig(state.selected, state.prefs), getSeason: () => state.season, getSelection: () => ({ selected: [...state.selected], prefs: [...state.prefs] }) });
 showTab(lsGet(LS.tab, 'today'));
+// 內建資料包：手機裡還沒有的資料（對手 10 年習慣、聯盟順位）直接補上，不用等 Yahoo 慢慢讀
+PACK.seedBundled().then((done) => { if (done.includes('demo.profiles')) reloadProfiles(); });
 // 下拉更新：今天＝重讀 MLB 數據；撿人＝重抓 Yahoo；即時＝重算比分
 pullToRefresh($('#tab-today'), async () => { await load(); });
 pullToRefresh($('#tab-pickup'), () => pickup?.refresh?.());

@@ -213,11 +213,17 @@ function renderDraft() {
       ${lostTop ? `<div class="muted small">上次推薦的 ${esc(lostTop.player.name)} 被選走了</div>` : ''}
       ${mine.length ? `<div class="muted small" style="margin-top:6px">我已經選了 ${mine.length} 人：${mine.map((p) => esc(p.name)).join('、')}</div>` : ''}
     </details>`;
-  if (!st.tipShown && !lsGet(LS_TIP, false)) { st.tipShown = true; setTimeout(draftHelp, 50); }
+  maybeTip();
 }
 
-// 進入模擬選秀時的教學（可以勾「下次不要再顯示」）
+// 進入模擬選秀時的教學（可以勾「下次不要再顯示」）；只在 Demo 頁真的打開、而且在選秀中時才跳
 const LS_TIP = 'mn.draftTipSkip';
+function maybeTip() {
+  if (st.tipShown || lsGet(LS_TIP, false) || st.g?.phase !== 'draft' || $('#tab-demo').hidden) return;
+  st.tipShown = true;
+  setTimeout(draftHelp, 50);
+}
+document.addEventListener('demo:shown', maybeTip);
 function draftHelp() {
   let cb = null;
   const box = sheet(`

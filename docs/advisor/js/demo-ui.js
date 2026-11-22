@@ -201,6 +201,12 @@ async function start(getConfig, season) {
   play();
 }
 
+// 內建資料包或匯入後，重新讀一次對手習慣
+export function reloadProfiles() {
+  st.profiles = lsGet(LS_PROFILES, null);
+  renderProfiles();
+}
+
 export function initDemo({ getBoard, getConfig, getSeason, getSelection }) {
   initManual({ getSelection, getSeason, getProfiles: () => st.profiles?.list ?? null });
   $('#demo-mode').addEventListener('click', (e) => {
