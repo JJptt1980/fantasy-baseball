@@ -6,7 +6,7 @@ import { buildPlayers, board as rankBoard, blendMaps } from './rank.js';
 import { projections, withProjections, PRESEASON } from './projections.js';
 import { buildConfig } from './strategies.js';
 import { CAT_LABEL } from './pickup.js';
-import { haptic, toast, miniBars, sheet } from './ui-kit.js';
+import { haptic, toast, miniBars, sheet, closeSheet } from './ui-kit.js';
 import { reasonOf, openPlayerCard, NICE } from './player-card.js';
 
 const $ = (s) => document.querySelector(s);
@@ -69,8 +69,10 @@ async function newGame() {
     st.g = createGame(boardFor(st.sel), { mySlot, profiles: st.gProfiles, seed: Date.now() & 0x7fffffff, weekly: st.prep.weekly });
     st.lastSeen = 0;
     st.compare = null;
+    room.tab = 'players';
     save();
-    render();
+    const before = st.g.draftLog.filter((x) => x.team !== st.g.mySlot);
+    if (before.length) startReveal(before); else myTurnStart();
   } catch (e) { console.error(e); status(e.message || '開始失敗', 'error'); }
 }
 
@@ -92,20 +94,78 @@ async function continueGame() {
     }
     if (err) throw err;
     save();
+    roomReset();
     $('#mn-continue').disabled = false;
     st.lastSeen = st.g.draftLog.length;
     status('');
-    render();
+    if (st.g.phase === 'draft') myTurnStart(); else render();
   } catch (e) { console.error(e); status(`讀檔失敗：${e.message}`, 'error'); }
 }
 
 // 選秀：選完捲到推薦、震動、6 秒內可復原（用存檔重播回到選之前）
-function draftWithUndo(fn, name) {
+// ── 選秀室（像 Yahoo）：別隊照節奏一個一個選、輪到你有倒數、時間到自動選 ──
+const LS_ROOM = 'mn.room';
+const roomCfg = () => lsGet(LS_ROOM, { clock: 60, speed: 1 });
+const room = { reveal: [], shown: 0, timer: null, tick: null, deadline: null, warned: false, soon: false, sel: null, tab: 'players' };
+function roomStop() { clearTimeout(room.timer); clearInterval(room.tick); room.timer = null; room.tick = null; }
+function roomReset() { roomStop(); room.reveal = []; room.shown = 0; room.deadline = null; room.sel = null; }
+// 還沒「播出來」的別隊選擇：畫面上當作還沒被選
+const pendingPicks = () => room.reveal.slice(room.shown);
+const revealing = () => room.shown < room.reveal.length;
+
+// 開始播放別隊選人（picks＝引擎已經選好的，畫面一個一個顯示）
+function startReveal(picks) {
+  roomStop();
+  room.reveal = picks;
+  room.shown = 0;
+  room.deadline = null;
+  room.soon = false;
+  nextReveal();
+}
+function nextReveal() {
+  render();
+  if (!revealing()) { myTurnStart(); return; }
+  const left = room.reveal.length - room.shown;
+  if (left <= 2 && !room.soon && st.g.phase === 'draft') { room.soon = true; haptic('soon'); }
+  const ms = (900 + Math.random() * 1800) * (roomCfg().speed || 1);
+  room.timer = setTimeout(() => { room.shown++; nextReveal(); }, ms);
+}
+function skipReveal() { roomStop(); room.shown = room.reveal.length; nextReveal(); }
+function myTurnStart() {
+  const g = st.g;
+  if (g.phase !== 'draft') { room.reveal = []; render(); return; }
+  room.reveal = [];
+  room.shown = 0;
+  room.sel = null;
+  haptic('now');
+  const c = roomCfg().clock;
+  room.deadline = c > 0 ? Date.now() + c * 1000 : null;
+  room.warned = false;
+  render();
+  if (room.deadline) {
+    room.tick = setInterval(() => {
+      const left = Math.ceil((room.deadline - Date.now()) / 1000);
+      const el = document.getElementById('room-clock');
+      if (el) el.textContent = fmtClock(left);
+      if (left <= 10 && !room.warned) { room.warned = true; haptic('warn'); el?.classList.add('hurry'); }
+      if (left <= 0) {
+        roomStop();
+        const rec = st.g.draftOptions().recommended[0];
+        if (rec) draftWithUndo(() => st.g.draftPick(rec.id), rec.name, '時間到，App 幫你選了');
+      }
+    }, 250);
+  }
+}
+const fmtClock = (s) => `${Math.floor(Math.max(0, s) / 60)}:${String(Math.max(0, s) % 60).padStart(2, '0')}`;
+
+// 選人：先點名字反白，再按下面的「選他」才算數
+function draftWithUndo(fn, name, prefix = '選了') {
   const g = st.g;
   const before = JSON.parse(JSON.stringify(g.serialize()));
   const seenBefore = st.lastSeen;
   const wasDraft = g.phase === 'draft';
   const startLen = g.draftLog.length;
+  roomStop();
   try {
     st.lastSeen = g.draftLog.length + 1;
     fn();
@@ -114,45 +174,36 @@ function draftWithUndo(fn, name) {
     save();
   } catch (e) { console.error(e); status(e.message, 'error'); return; }
   haptic('mark');
-  const undo = () => {
-    stopRoll();
-    st.g = restoreGame(boardFor(st.sel), before, { profiles: st.gProfiles, weekly: st.prep.weekly });
-    st.lastSeen = seenBefore;
-    st.showReport = false;
-    save();
-    render();
-    $('#mn-recs')?.scrollIntoView({ block: 'start' });
-  };
-  const finish = () => {
-    render();
-    const target = g.phase === 'draft' ? $('#mn-recs') : null;
-    if (target) { window.scrollTo(0, 0); } else window.scrollTo(0, 0);
-    if (g.phase === 'draft') haptic('tap');
-  };
-  toast(name ? `選了 ${name}` : '剩下照建議選完', { undo });
-  // 你選完之後，別隊輪流選人：一個一個顯示（每人 0.15 秒，可跳過），讓你看到「輪流」
+  toast(name ? `${prefix} ${name}` : '剩下照建議選完', {
+    undo: () => {
+      roomReset();
+      st.g = restoreGame(boardFor(st.sel), before, { profiles: st.gProfiles, weekly: st.prep.weekly });
+      st.lastSeen = seenBefore;
+      st.showReport = false;
+      save();
+      myTurnStart();
+    },
+  });
   const others = name ? g.draftLog.slice(startLen + 1).filter((x) => x.team !== g.mySlot) : [];
-  if (!others.length) return finish();
-  rollOthers(others, finish);
+  window.scrollTo(0, 0);
+  if (others.length) startReveal(others); else { roomReset(); render(); }
 }
 
-let rollTimer = null;
-function stopRoll() { clearTimeout(rollTimer); rollTimer = null; }
-function rollOthers(picks, done) {
-  const g = st.g;
-  window.scrollTo(0, 0);
-  $('#mn-body').innerHTML = `<div class="card roll"><div class="dh-turn">別隊輪流選人中… <button type="button" class="help" data-act="roll-skip">跳過</button></div>
-    <div id="roll-list"></div></div>`;
-  const list = $('#roll-list');
-  let i = 0;
-  const step = () => {
-    if (i >= picks.length) { rollTimer = setTimeout(() => { stopRoll(); done(); }, 350); return; }
-    const x = picks[i++];
-    list.insertAdjacentHTML('beforeend', `<div class="roll-row"><span class="muted small">第 ${x.round} 輪第 ${x.pick} 位</span> <b>${esc(g.names[x.team])}</b> 選了 ${esc(x.player.name)} <span class="pos">${esc(x.player.pos)}</span></div>`);
-    rollTimer = setTimeout(step, 150);
-  };
-  st.rollDone = () => { stopRoll(); done(); };
-  step();
+// 重新開始（選秀中、球季中都可以）
+function askRestart() {
+  const box = sheet(`<div class="sh-head"><div class="sh-name">放棄這一季、重新開始？</div><button type="button" class="sh-x" data-close aria-label="關閉">✕</button></div>
+    <p class="muted">這一季的選秀和戰績會清掉，回到開始畫面重新選。</p>
+    <div class="sh-acts"><button type="button" class="btn primary" data-rs="yes">重新開始</button><button type="button" class="btn" data-close>取消</button></div>`);
+  box.addEventListener('click', (e) => {
+    if (!e.target.closest('[data-rs]')) return;
+    closeSheet();
+    roomReset();
+    lsSet(LS_SAVE, null);
+    st.g = null;
+    st.showReport = false;
+    render();
+    window.scrollTo(0, 0);
+  });
 }
 
 function act(fn) {
@@ -200,7 +251,7 @@ function rosterSummary(team) {
   return `<div class="sumline">先發打者 ${filled.B}/12、投手 ${filled.P}/11｜${miss.length ? `還缺：<b>${esc(list)}</b>` : '先發格子都有人了，接下來補板凳'}</div>`;
 }
 
-// ── 選秀畫面 ──
+
 const recSentence = (p) => {
   const r = (p.recReasons ?? []).filter((x) => !/^選秀表第/.test(x));
   return r.length ? r.join('、') : reasonOf(p);
@@ -211,44 +262,62 @@ const nextTag = (p) => (p.verdict ? LEVEL[p.verdict.level] : '');
 
 function renderDraft() {
   const g = st.g;
-  const tu = g.turn();
   const opt = g.draftOptions();
-  const since = g.draftLog.slice(st.lastSeen).filter((x) => x.team !== g.mySlot);
-  const lostTop = st.lastTop != null ? since.find((x) => x.player.id === st.lastTop) : null;
-  st.lastTop = opt.recommended[0]?.id ?? null;
+  const pend = pendingPicks();
+  const pendIds = new Set(pend.map((x) => x.player.id));
+  const myTurn = !revealing();
+  const cur = myTurn ? null : pend[0];
   const mine = g.teams[g.mySlot];
-  const recIds = new Set(opt.recommended.map((p) => p.id));
-  const all = opt.all.filter((p) => !recIds.has(p.id) && (!st.q || p.name.toLowerCase().includes(st.q.toLowerCase())) && (!st.pos || st.pos === p.side || st.pos === p.pos)).slice(0, 40);
+  const tu = g.turn();
+  // 再幾人輪到你（含正在選的）
+  const waitN = myTurn ? 0 : pend.length;
   const openCnt = opt.open.reduce((m, x) => ((m[x] = (m[x] ?? 0) + 1), m), {});
   const openTxt = Object.entries(openCnt).map(([k, n]) => (n > 1 ? `${k}×${n}` : k)).join('、');
-  // 一列＝一位球員：點整列就是選他；右邊 ⓘ 看詳情
-  // 一列一個人：名字＋星等＋一句很短的理由；點整列＝選他，ⓘ＝詳情
-  const row = (p, i) => `<div class="pick-row ${i === 0 ? 'top' : ''}" data-pick="${p.id}" role="button" tabindex="0">
-      <div class="pk-main"><b>${esc(p.name)}</b> <span class="pos">${esc(p.pos)}</span> ${i != null ? nextTag(p) : ''}
-        <div class="verdict lv${i != null ? p.verdict?.level ?? 0 : 0}">${esc(i != null ? p.verdict?.why ?? '' : '比推薦的人弱')}</div></div>
-      <button type="button" class="info" data-card="${p.id}" aria-label="看 ${esc(p.name)} 的詳細資料">ⓘ</button></div>`;
-  const starred = opt.recommended.filter((p) => (p.verdict?.level ?? 0) > 0);
-  const others = [...opt.recommended.filter((p) => !(p.verdict?.level > 0)), ...all];
-  $('#mn-body').innerHTML = `
-    <div class="draft-head">
-      <div class="dh-turn">第 ${tu.round} 輪・輪到你 <button type="button" class="help" data-act="draft-help" aria-label="怎麼選">？</button></div>
-      <div class="sumline small">${opt.open.length ? `還缺 <b>${esc(openTxt)}</b>` : '位置都滿了，選替補'}${opt.forced ? '｜<b class="bad-text">只能選缺的位置</b>' : ''}</div>
-      ${since.length ? `<div class="muted small just">剛剛別隊選了 ${since.length} 人：${since.slice(0, 4).map((x) => esc(x.player.name)).join('、')}${since.length > 4 ? '…' : ''}</div>` : ''}
-    </div>
-    <div class="card" id="mn-recs">
-      <div class="muted small" style="margin-bottom:4px">👆 點名字＝選他（點錯可「復原」）</div>
-      ${starred.map((p) => row(p, opt.recommended.indexOf(p))).join('')}
-      ${others.length ? `<div class="backup">🔄 上面的被選走了？改選：<b>${others.slice(0, 2).map((p) => esc(p.name)).join('</b>、<b>')}</b></div>` : ''}
-    </div>
-    <div class="mn-actions" style="margin:0 0 10px"><button type="button" class="btn" data-act="draft-rest">剩下的讓 App 幫我選</button></div>
-    <details class="card" ${st.q || st.pos ? 'open' : ''}><summary>其他人</summary>
-      <div class="toolbar" style="margin-top:8px"><input id="mn-q" type="search" placeholder="打名字找人" value="${esc(st.q)}">
-        <select id="mn-pos">${['', 'B', 'P', 'C', '1B', '2B', '3B', 'SS', 'OF', 'DH', 'SP', 'RP'].map((v) => `<option value="${v}" ${st.pos === v ? 'selected' : ''}>${v === '' ? '全部' : v === 'B' ? '打者' : v === 'P' ? '投手' : v}</option>`).join('')}</select></div>
-      ${others.slice(0, 40).map((p) => row(p, opt.recommended.includes(p) ? opt.recommended.indexOf(p) : null)).join('') || '<p class="muted">找不到</p>'}
-      ${since.length ? `<div class="muted small" style="margin-top:8px">別隊剛剛選了：${since.map((x) => esc(x.player.name)).join('、')}</div>` : ''}
-      ${lostTop ? `<div class="muted small">上次推薦的 ${esc(lostTop.player.name)} 被選走了</div>` : ''}
-      ${mine.length ? `<div class="muted small" style="margin-top:6px">我已經選了 ${mine.length} 人：${mine.map((p) => esc(p.name)).join('、')}</div>` : ''}
-    </details>`;
+  if (myTurn && room.sel == null) room.sel = opt.recommended[0]?.id ?? null;
+
+  // 上方：輪到誰＋倒數
+  const banner = myTurn
+    ? `<div class="room-bar me"><div><b>輪到你了！</b><div class="small">第 ${tu.round} 輪第 ${tu.pick} 位</div></div><div class="clock" id="room-clock">${room.deadline ? fmtClock(Math.ceil((room.deadline - Date.now()) / 1000)) : '不限時'}</div></div>`
+    : `<div class="room-bar"><div>輪到：<b>${esc(g.names[cur.team])}</b><div class="small">第 ${cur.round} 輪第 ${cur.pick} 位｜再 ${waitN} 人輪到你</div></div><div class="thinking">選人中…</div></div>`;
+
+  // 分頁：球員／選秀結果／我的陣容
+  const tabs = `<div class="seg room-tabs">${[['players', '球員'], ['board', '選秀結果'], ['team', `我的陣容 ${mine.length}`]].map(([k, l]) => `<button type="button" data-rtab="${k}" class="${room.tab === k ? 'on' : ''}">${l}</button>`).join('')}</div>`;
+
+  let body = '';
+  if (room.tab === 'board') {
+    const shown = g.draftLog.filter((x) => !pendIds.has(x.player.id)).slice().reverse();
+    body = `<div class="card">${shown.slice(0, 60).map((x) => `<div class="roll-row ${x.team === g.mySlot ? 'mine' : ''}"><span class="muted small">${x.round}-${x.pick}</span> <b>${esc(x.team === g.mySlot ? '你' : g.names[x.team])}</b>：${esc(x.player.name)} <span class="pos">${esc(x.player.pos)}</span></div>`).join('') || '<p class="muted">還沒有人選</p>'}</div>`;
+  } else if (room.tab === 'team') {
+    body = `<div class="card">${rosterSummary(mine)}${mine.map((p) => `<div class="roll-row"><b>${esc(p.name)}</b> <span class="pos">${esc(p.pos)}</span></div>`).join('') || '<p class="muted">還沒選人</p>'}</div>`;
+  } else {
+    // 球員：輪到你時給 3 個建議；別人在選的時候先看清單（還沒輪到你，不能選）
+    const row = (p, i) => `<div class="pick-row ${room.sel === p.id ? 'sel' : ''}" data-sel="${p.id}" role="button" tabindex="0">
+        <div class="pk-main"><b>${esc(p.name)}</b> <span class="pos">${esc(p.pos)}</span> ${i != null ? nextTag(p) : ''}
+          <div class="verdict lv${i != null ? p.verdict?.level ?? 0 : 0}">${esc(i != null ? p.verdict?.why ?? '' : reasonOf(p))}</div></div>
+        <button type="button" class="info" data-card="${p.id}" aria-label="看 ${esc(p.name)} 的詳細資料">ⓘ</button></div>`;
+    const recIds = new Set(opt.recommended.map((p) => p.id));
+    const starred = opt.recommended.filter((p) => (p.verdict?.level ?? 0) > 0);
+    // 別人還在選的時候：引擎已經選好的人先當作還在（等播到才消失）
+    const pool = [...pend.map((x) => x.player), ...opt.all].filter((p, i, a) => a.findIndex((y) => y.id === p.id) === i).sort((a, b) => a.rank - b.rank);
+    const others = pool.filter((p) => !recIds.has(p.id) && (!st.q || p.name.toLowerCase().includes(st.q.toLowerCase())) && (!st.pos || st.pos === p.side || st.pos === p.pos));
+    body = `${myTurn ? `<div class="card" id="mn-recs"><div class="sumline small">還缺 <b>${esc(openTxt || '—')}</b>${opt.forced ? '｜<b class="bad-text">只能選缺的位置</b>' : ''}</div>
+        ${starred.map((p) => row(p, opt.recommended.indexOf(p))).join('')}
+        ${others.length ? `<div class="backup">🔄 上面的都不要？改看：<b>${others.slice(0, 2).map((p) => esc(p.name)).join('</b>、<b>')}</b></div>` : ''}</div>`
+      : `<div class="card"><div class="muted small">還沒輪到你，可以先看看球員。輪到你時會震動，並給你 3 個建議。</div></div>`}
+      <details class="card" ${st.q || st.pos || !myTurn ? 'open' : ''}><summary>全部球員</summary>
+        <div class="toolbar" style="margin-top:8px"><input id="mn-q" type="search" placeholder="打名字找人" value="${esc(st.q)}">
+          <select id="mn-pos">${['', 'B', 'P', 'C', '1B', '2B', '3B', 'SS', 'OF', 'DH', 'SP', 'RP'].map((v) => `<option value="${v}" ${st.pos === v ? 'selected' : ''}>${v === '' ? '全部' : v === 'B' ? '打者' : v === 'P' ? '投手' : v}</option>`).join('')}</select></div>
+        ${others.slice(0, 40).map((p) => row(p, null)).join('') || '<p class="muted">找不到</p>'}
+      </details>`;
+  }
+  const selP = room.sel != null ? (opt.all.find((p) => p.id === room.sel) ?? null) : null;
+  const pickBar = myTurn && selP
+    ? `<div class="mn-sticky"><button type="button" class="btn primary pick-go" data-act="pick-go">✅ 選 ${esc(selP.name)}</button></div>`
+    : myTurn ? '<div class="mn-sticky"><div class="muted small" style="text-align:center">先點一個球員</div></div>'
+      : `<div class="mn-sticky"><button type="button" class="btn" data-act="roll-skip">⏭ 快轉到輪到我</button></div>`;
+  $('#mn-body').innerHTML = `${banner}
+    <div class="room-tools"><button type="button" class="help" data-act="draft-help">？怎麼選</button><button type="button" class="help" data-act="draft-rest">剩下讓 App 選</button><button type="button" class="help" data-act="restart">重新開始</button></div>
+    ${tabs}${body}${pickBar}`;
   maybeTip();
 }
 
@@ -265,11 +334,11 @@ function draftHelp() {
   const box = sheet(`
     <div class="sh-head"><div class="sh-name">模擬選秀怎麼玩</div><button type="button" class="sh-x" data-close aria-label="關閉">✕</button></div>
     <ol class="steps">
-      <li>輪到你時，上面寫「輪到你」。</li>
-      <li><b>點名字＝選他。</b>點錯了，按上面的「復原」。</li>
-      <li>⭐⭐⭐ 最推薦，<b>不知道選誰就選它</b>。⭐⭐、⭐ 也可以。</li>
-      <li>「還缺」是還沒人的位置，記得補。</li>
-      <li>想看資料點 ⓘ；懶得選按「剩下的讓 App 幫我選」。</li>
+      <li>12 隊照順序一個一個選，上面會寫<b>現在輪到誰</b>、再幾人輪到你。</li>
+      <li>輪到你時手機會震動、開始倒數。<b>先點名字，再按下面的「✅ 選他」</b>才算數（跟 Yahoo 一樣）。</li>
+      <li>⭐⭐⭐ 最推薦，<b>不知道選誰就選它</b>。時間到 App 會幫你選第 1 個。</li>
+      <li>「選秀結果」看大家選了誰，「我的陣容」看你還缺什麼。</li>
+      <li>不想等可以按「快轉到輪到我」；不想玩了按「重新開始」。</li>
     </ol>
     <label class="check"><input type="checkbox" id="tip-skip"> 下次不要再顯示</label>
     <div class="sh-acts"><button type="button" class="btn primary" data-close>知道了，開始選</button></div>`, {
@@ -328,7 +397,7 @@ function renderWeek() {
   const rec = g.rec[g.mySlot];
   const isPO = g.phase === 'playoffs';
   const head = `<div class="card"><h3 class="first">${isPO ? '季後賽・' : ''}第 ${pv.week} 週${pv.dates ? `<span class="muted small">（重播 ${esc(pv.dates.start.slice(5))}～${esc(pv.dates.end.slice(5))}）</span>` : ''}</h3>
-    <div class="sumline">戰績 ${rec.mw} 勝 ${rec.ml} 敗｜第 ${g.myRank()} 名｜今年還能換 ${g.budget} 次人</div>
+    <div class="sumline">戰績 ${rec.mw} 勝 ${rec.ml} 敗｜第 ${g.myRank()} 名｜今年還能換 ${g.budget} 次人 <button type="button" class="help" data-act="restart">重新開始</button></div>
     <div class="sumline">${pv.opp != null ? `本週對手：<b>${esc(g.names[pv.opp])}</b>` : isPO ? (g.seeds.indexOf(g.mySlot) <= 1 && pv.week === 24 ? '你是前兩名，這週直接晉級、不用打 😎' : '你被淘汰了，接下來看別人打') : ''}</div>
     ${pv.cats ? `<div class="sumline">App 猜這週：<b class="good-text">${pv.cats.filter((c) => c.prob > 0.5).length} 類贏</b>、<b class="bad-text">${pv.cats.filter((c) => c.prob < 0.5).length} 類輸</b>｜你比較弱：${pv.weak.map(esc).join('、')}</div>
       <details class="sub"><summary>看 18 類各自的贏面</summary><div class="mn-cats" style="margin-top:6px">${pv.cats.map((c) => `<span class="tag ${probCls(c.prob)}">${esc(c.label)} ${Math.round(c.prob * 100)}%</span>`).join('')}</div></details>` : ''}</div>`;
@@ -432,6 +501,13 @@ export function initManual({ getSelection, getSeason, getProfiles }) {
   Object.assign(st, { getSelection, getSeason, getProfiles });
   $('#mn-slot').insertAdjacentHTML('beforeend', Array.from({ length: TEAMS }, (_, i) => `<option value="${i}">第 ${i + 1} 順位</option>`).join(''));
   $('#mn-new').addEventListener('click', newGame);
+  // 選秀室設定：每次選人時間、別隊速度
+  const rc = roomCfg();
+  $('#mn-clock').value = String(rc.clock);
+  $('#mn-speed').value = String(rc.speed);
+  const saveRoom = () => lsSet(LS_ROOM, { clock: Number($('#mn-clock').value), speed: Number($('#mn-speed').value) });
+  $('#mn-clock').addEventListener('change', saveRoom);
+  $('#mn-speed').addEventListener('change', saveRoom);
   $('#mn-continue').addEventListener('click', continueGame);
   const body = $('#mn-body');
   body.addEventListener('click', (e) => {
@@ -441,14 +517,18 @@ export function initManual({ getSelection, getSeason, getProfiles }) {
       if (info) {
         const id = Number(info.dataset.card);
         const p = st.g.draftOptions().recommended.find((x) => x.id === id) ?? st.g.avail.get(id);
-        if (p) openPlayerCard(p, { season: st.prep.season - 1, lead: p.recReasons ? recSentence(p) : undefined, actions: [{ label: '選他', primary: true, run: () => draftWithUndo(() => st.g.draftPick(id), p.name) }] });
+        if (p) openPlayerCard(p, { season: st.prep.season - 1, lead: p.recReasons ? recSentence(p) : undefined, actions: revealing() ? [] : [{ label: `選 ${p.name}`, primary: true, run: () => draftWithUndo(() => st.g.draftPick(id), p.name) }] });
         return;
       }
       const row = e.target.closest('.pick-row');
       if (row && !e.target.closest('select, input')) {
-        const id = Number(row.dataset.pick);
-        return draftWithUndo(() => st.g.draftPick(id), st.g.avail.get(id)?.name);
+        if (revealing()) { toast('還沒輪到你，輪到你時會震動'); return; }
+        room.sel = Number(row.dataset.sel);
+        haptic('tap');
+        return renderDraft();
       }
+      const rt = e.target.closest('[data-rtab]');
+      if (rt) { room.tab = rt.dataset.rtab; return renderDraft(); }
     }
     const b = e.target.closest('button');
     if (!b) return;
@@ -467,8 +547,10 @@ export function initManual({ getSelection, getSeason, getProfiles }) {
       return;
     }
     const a = b.dataset.act;
-    if (a === 'draft-rest') return draftWithUndo(() => g.autoDraftRest(), null);
-    if (a === 'roll-skip') return st.rollDone?.();
+    if (a === 'draft-rest') { roomReset(); return draftWithUndo(() => g.autoDraftRest(), null); }
+    if (a === 'roll-skip') return skipReveal();
+    if (a === 'restart') return askRestart();
+    if (a === 'pick-go') { const id = room.sel; const p = st.g.avail.get(id); if (p) draftWithUndo(() => st.g.draftPick(id), p.name); return; }
     if (a === 'draft-help') return draftHelp();
     if (a === 'report-ok') { st.showReport = false; render(); return top(); }
     if (a === 'auto-moves') return act(() => { const n = g.autoMoves(); if (!n) setTimeout(() => status('目前沒有值得換的人。'), 0); });

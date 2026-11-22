@@ -163,7 +163,10 @@
         <div class="card" id="mn-start">
           <h2>手動玩 2027</h2>
           <p class="muted small">你當 12 隊裡的一隊：先選 25 個球員，再每週決定撿誰、誰上場。App 每一步都會給建議。比賽照去年真的成績重播，會自動存檔。</p>
-          <div class="two"><label>你第幾個選<select id="mn-slot"><option value="">隨機</option></select></label><label>&nbsp;<button type="button" class="btn primary" id="mn-new">▶ 開始新賽季</button></label></div>
+          <div class="two"><label>你第幾個選<select id="mn-slot"><option value="">隨機</option></select></label>
+            <label>每次選人時間<select id="mn-clock"><option value="60">60 秒</option><option value="30">30 秒</option><option value="90">90 秒</option><option value="0">不限時</option></select></label></div>
+          <div class="two" style="margin-top:6px"><label>別隊選人速度<select id="mn-speed"><option value="1">普通</option><option value="0.4">快</option><option value="2">慢（像真的）</option></select></label>
+            <label>&nbsp;<button type="button" class="btn primary" id="mn-new">▶ 開始新賽季</button></label></div>
           <div class="demo-btns"><button type="button" class="btn" id="mn-continue" hidden></button></div>
         </div>
         <div id="mn-status" class="status" hidden></div>
