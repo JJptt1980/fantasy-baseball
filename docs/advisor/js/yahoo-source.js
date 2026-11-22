@@ -68,3 +68,26 @@ export async function freeAgents(league, pages = 4) {
 export async function draftResults(league, path) {
   return web.parseDraftResults(await getDoc(path ?? `/${league.key}/draftresults?drafttab=round`));
 }
+
+// 聯盟歷史（最多 years 年）：用自訂網址 /league/<slug>/<年> 找出每年的聯盟 ID，
+// 再抓選秀結果與經理人（換人次數）。→ [{ season, key, picks, teams }]
+export async function leagueHistory(league, years = 10, onProgress = () => {}) {
+  const slug = web.parseLeagueSlug(await getDoc(`/${league.key}/settings`));
+  const out = [];
+  for (let i = 0; i < years; i++) {
+    const season = league.season - i;
+    let key = i === 0 ? league.key : null;
+    if (!key && slug) {
+      const id = web.parseLeagueId(await getDoc(`/league/${slug}/${season}`));
+      if (id) key = `${season}/b1/${id}`;
+    }
+    if (!key) continue;
+    onProgress(season);
+    const [picks, teams] = await Promise.all([
+      getDoc(`/${key}/draftresults?drafttab=round`).then(web.parseDraftResults).catch(() => []),
+      getDoc(`/${key}/teams`).then(web.parseTeams).catch(() => []),
+    ]);
+    if (picks.length || teams.length) out.push({ season, key, picks, teams });
+  }
+  return out;
+}

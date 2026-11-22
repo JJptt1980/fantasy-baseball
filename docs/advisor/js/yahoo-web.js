@@ -199,3 +199,33 @@ export function parseDraftResults(doc) {
   for (const x of out) x.overall = (x.round - 1) * teams + x.pick;
   return out;
 }
+
+// 經理人頁 /YYYY/b1/<league>/teams → [{ teamId, team, managerId, manager, moves, trades }]（不讀 email）
+export function parseTeams(doc) {
+  const t = [...doc.querySelectorAll('table')].find((x) => /Manager/.test(text(x.tHead)) && /Moves/.test(text(x.tHead)));
+  if (!t) return [];
+  const head = [...t.tHead.rows[0].cells].map((c) => text(c));
+  const iMoves = head.findIndex((h) => /Moves/.test(h));
+  const iTrades = head.findIndex((h) => /Trades/.test(h));
+  return [...t.tBodies[0].rows].map((tr) => {
+    const teamA = [...tr.cells[0].querySelectorAll('a')].find((a) => text(a));
+    const mgrA = tr.querySelector('.user-id a, td.user-id a');
+    return {
+      teamId: teamA?.getAttribute('href')?.match(/\/(\d+)$/)?.[1] ?? null,
+      team: text(teamA),
+      managerId: mgrA?.getAttribute('href')?.match(/profile\/([^/?#]+)/)?.[1] ?? text(mgrA),
+      manager: text(mgrA).replace(/Commissioner|Co-Commissioner/g, '').trim(),
+      moves: Number(text(tr.cells[iMoves])) || 0,
+      trades: Number(text(tr.cells[iTrades])) || 0,
+    };
+  }).filter((x) => x.team);
+}
+
+// 設定頁 → 聯盟自訂網址代號（…/league/<slug>），用來找歷年聯盟
+export function parseLeagueSlug(doc) {
+  return text(doc.body).match(/fantasysports\.yahoo\.com\/league\/([A-Za-z0-9_-]+)/)?.[1] ?? null;
+}
+
+export function parseLeagueId(doc) {
+  return text(doc.body).match(/\(ID# (\d+)\)/)?.[1] ?? null;
+}

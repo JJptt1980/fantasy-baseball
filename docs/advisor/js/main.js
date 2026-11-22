@@ -177,6 +177,6 @@ let pickup = null;
 renderChecks();
 bind();
 pickup = initPickup();
-initDemo({ getBoard: () => state.ranked });
+initDemo({ getBoard: () => state.ranked, getConfig: () => buildConfig(state.selected, state.prefs), getSeason: () => state.season });
 showTab(lsGet(LS.tab, 'draft'));
 load();
