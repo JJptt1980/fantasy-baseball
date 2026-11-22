@@ -82,6 +82,11 @@ public class MainActivity extends Activity {
                     android.view.WindowInsetsController.APPEARANCE_LIGHT_STATUS_BARS | android.view.WindowInsetsController.APPEARANCE_LIGHT_NAVIGATION_BARS);
         }
         setContentView(root);
+        // Android 13 以上的返回手勢
+        if (android.os.Build.VERSION.SDK_INT >= 33) {
+            getOnBackInvokedDispatcher().registerOnBackInvokedCallback(
+                    android.window.OnBackInvokedDispatcher.PRIORITY_DEFAULT, this::handleBack);
+        }
         if (savedInstanceState != null) web.restoreState(savedInstanceState);
         else web.loadUrl(START);
     }
@@ -111,9 +116,15 @@ public class MainActivity extends Activity {
         web.saveState(outState);
     }
 
+    // 返回手勢（從邊緣往內滑）：交給網頁決定要「上一步」還是離開 App
+    private void handleBack() {
+        web.evaluateJavascript("window.__appBack ? window.__appBack() : 'exit'", v -> {
+            if ("\"exit\"".equals(v) || "null".equals(v)) finish();
+        });
+    }
+
     @Override
     public void onBackPressed() {
-        if (web.canGoBack()) web.goBack();
-        else super.onBackPressed();
+        handleBack(); // Android 12 以下
     }
 }

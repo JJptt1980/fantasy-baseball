@@ -133,7 +133,10 @@ function nextReveal() {
 function skipReveal() { roomStop(); room.shown = room.reveal.length; nextReveal(); }
 function myTurnStart() {
   const g = st.g;
+  const missed = room.reveal.filter((x) => !room.confirmed.has(x.player.id)).length;
+  room.confirmed = new Set();
   if (g.phase !== 'draft') { room.reveal = []; render(); return; }
+  if (missed && room.reveal.length) setTimeout(() => toast(`有 ${missed} 人你沒記到，App 已經幫你劃掉`), 400);
   room.reveal = [];
   room.shown = 0;
   room.sel = null;
@@ -291,14 +294,16 @@ function renderDraft() {
     body = `<div class="card">${rosterSummary(mine)}${mine.map((p) => `<div class="roll-row"><b>${esc(p.name)}</b> <span class="pos">${esc(p.pos)}</span></div>`).join('') || '<p class="muted">還沒選人</p>'}</div>`;
   } else {
     // 球員：輪到你時給 3 個建議；別人在選的時候先看清單（還沒輪到你，不能選）
-    const row = (p, i) => `<div class="pick-row ${room.sel === p.id ? 'sel' : ''}" data-sel="${p.id}" role="button" tabindex="0">
+    const row = (p, i) => `<div class="pick-row ${room.sel === p.id ? 'sel' : ''}" data-sel="${p.id}" ${!myTurn && unconfIds.has(p.id) ? `data-confirm="${p.id}"` : ''} role="button" tabindex="0">
         <div class="pk-main"><b>${esc(p.name)}</b> <span class="pos">${esc(p.pos)}</span> ${i != null ? nextTag(p) : ''}
           <div class="verdict lv${i != null ? p.verdict?.level ?? 0 : 0}">${esc(i != null ? p.verdict?.why ?? '' : reasonOf(p))}</div></div>
         <button type="button" class="info" data-card="${p.id}" aria-label="看 ${esc(p.name)} 的詳細資料">ⓘ</button></div>`;
     const recIds = new Set(opt.recommended.map((p) => p.id));
     const starred = opt.recommended.filter((p) => (p.verdict?.level ?? 0) > 0);
     // 別人還在選的時候：引擎已經選好的人先當作還在（等播到才消失）
-    const pool = [...pend.map((x) => x.player), ...opt.all].filter((p, i, a) => a.findIndex((y) => y.id === p.id) === i).sort((a, b) => a.rank - b.rank);
+    const unconf = room.reveal.slice(0, room.shown).filter((x) => !room.confirmed.has(x.player.id));
+    const unconfIds = new Set(unconf.map((x) => x.player.id));
+    const pool = [...pend.map((x) => x.player), ...unconf.map((x) => x.player), ...opt.all].filter((p, i, a) => a.findIndex((y) => y.id === p.id) === i).sort((a, b) => a.rank - b.rank);
     const others = pool.filter((p) => !recIds.has(p.id) && (!st.q || p.name.toLowerCase().includes(st.q.toLowerCase())) && (!st.pos || st.pos === p.side || st.pos === p.pos));
     body = `${myTurn ? `<div class="card" id="mn-recs"><div class="sumline small">還缺 <b>${esc(openTxt || '—')}</b>${opt.forced ? '｜<b class="bad-text">只能選缺的位置</b>' : ''}</div>
         ${starred.map((p) => row(p, opt.recommended.indexOf(p))).join('')}
@@ -540,7 +545,8 @@ export function initManual({ getSelection, getSeason, getProfiles }) {
         if (revealing()) {
           const cur = pendingPicks()[0];
           const nm = row.querySelector('b')?.textContent ?? '';
-          toast(`${nm} 還沒被選走（現在輪到 ${st.g.names[cur.team]} 選）`);
+          const last = room.reveal[room.shown - 1];
+          toast(`${nm} 還沒被選走${last && !room.confirmed.has(last.player.id) ? `（剛剛選的是 ${last.player.name}）` : `（現在輪到 ${st.g.names[cur.team]} 選）`}`);
           return;
         }
         room.sel = Number(row.dataset.sel);

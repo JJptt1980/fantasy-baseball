@@ -9,7 +9,7 @@ import { initDemo, reloadProfiles } from './demo-ui.js';
 import * as PACK from './pack.js';
 import { initLive } from './live-ui.js';
 import { initDraftSync } from './draft-sync-ui.js';
-import { haptic, toast, swipeRows, pullToRefresh, skeleton, sheet } from './ui-kit.js';
+import { haptic, toast, swipeRows, pullToRefresh, skeleton, sheet, closeSheet } from './ui-kit.js';
 import { reasonOf, openPlayerCard, statLine as cardStatLine } from './player-card.js';
 
 const $ = (s) => document.querySelector(s);
@@ -222,7 +222,7 @@ function bind() {
     showTab(g.dataset.goto);
     if (g.dataset.open) { const el = document.getElementById(g.dataset.open); if (el) { el.open = true; el.scrollIntoView({ block: 'start' }); } }
   });
-  $('#nav-back').addEventListener('click', () => showTab('more'));
+  $('#nav-back').addEventListener('click', () => showTab('more', { fromBack: true }));
   $('#open-sources').addEventListener('click', openSources);
   // 打字時（鍵盤打開）把底部分頁列藏起來，不要擠在鍵盤上面
   const typing = (el) => el?.matches?.('input[type=search], input[type=text], textarea');
@@ -279,8 +279,13 @@ function bind() {
 }
 
 const PAGES = ['today', 'draft', 'pickup', 'live', 'more', 'demo'];
-function showTab(tab) {
+// 返回手勢用：記住走過的分頁
+const tabHist = [];
+let curTab = null;
+function showTab(tab, { fromBack = false } = {}) {
   if (!PAGES.includes(tab)) tab = 'today';
+  if (!fromBack && curTab && curTab !== tab) { tabHist.push(curTab); if (tabHist.length > 20) tabHist.shift(); }
+  curTab = tab;
   document.getElementById('toast')?.classList.remove('show'); // 換頁就收起上一頁的「復原」
   // Demo 是「更多」底下的子頁
   const bar = tab === 'demo' ? 'more' : tab;
@@ -386,6 +391,23 @@ async function loadAdp() {
   state.adpNote = note.join('、');
   recompute();
 }
+
+// 手機的「返回」（從邊緣往內滑）：先關彈出視窗 → 離開放大模式 → 回上一頁 → 回「今天」→ 再滑一次才離開 App
+let exitArmed = 0;
+window.__appBack = () => {
+  if (document.querySelector('.sheet-bg')) { closeSheet(); return 'handled'; }
+  const fm = document.getElementById('ds-focus');
+  if (fm && !fm.hidden) { fm.querySelector('#ds-focus-close')?.click(); return 'handled'; }
+  if (document.activeElement?.matches?.('input, textarea')) { document.activeElement.blur(); return 'handled'; }
+  if (curTab === 'demo') { showTab('more', { fromBack: true }); return 'handled'; }
+  const prev = tabHist.pop();
+  if (prev && prev !== curTab) { showTab(prev, { fromBack: true }); return 'handled'; }
+  if (curTab !== 'today') { showTab('today', { fromBack: true }); return 'handled'; }
+  if (Date.now() - exitArmed < 2000) return 'exit';
+  exitArmed = Date.now();
+  toast('再滑一次離開', { ms: 2000 });
+  return 'handled';
+};
 
 let pickup = null;
 let live = null;
