@@ -186,6 +186,7 @@ function bind() {
   $('#sel-week').addEventListener('change', (e) => run(() => loadWeek(e.target.value)));
   $('#btn-refresh').addEventListener('click', () => {
     if (state.settings && state.week) run(() => loadWeek(state.week, { fresh: true }));
+    else run(() => loadSeason($('#sel-season').value || DEFAULT_SEASON));
   });
   $('#btn-logout').addEventListener('click', async () => {
     await api.logout();
