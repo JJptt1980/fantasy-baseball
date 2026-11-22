@@ -4,6 +4,7 @@ import { BASE, STRATEGIES, PREFS, buildConfig } from './strategies.js';
 import { initPickup } from './pickup-ui.js';
 import { initDemo } from './demo-ui.js';
 import { initLive } from './live-ui.js';
+import { initDraftSync } from './draft-sync-ui.js';
 
 const $ = (s) => document.querySelector(s);
 const LS = { strat: 'adv.strategies', prefs: 'adv.prefs', notes: 'adv.notes', marks: 'adv.marks', tab: 'adv.tab' };
@@ -181,6 +182,15 @@ let live = null;
 renderChecks();
 bind();
 pickup = initPickup();
+// 選秀即時同步：自動標記（只會新增或改成「我選／被選」，不會清掉你手動標的）
+initDraftSync({
+  getBoard: () => state.ranked,
+  applyMarks: (marks) => {
+    let changed = false;
+    for (const [id, v] of Object.entries(marks)) if (state.marks[id] !== v) { state.marks[id] = v; changed = true; }
+    if (changed) { lsSet(LS.marks, state.marks); renderBoard(); }
+  },
+});
 live = initLive({ getBoard: () => state.ranked, weeklyUrl: `data/weekly-${lastSeason()}.json` });
 initDemo({ getBoard: () => state.ranked, getConfig: () => buildConfig(state.selected, state.prefs), getSeason: () => state.season, getSelection: () => ({ selected: [...state.selected], prefs: [...state.prefs] }) });
 showTab(lsGet(LS.tab, 'draft'));

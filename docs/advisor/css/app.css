@@ -191,3 +191,8 @@ details.sub summary { cursor: pointer; }
 .budget.bad .b-bar i { background: var(--bad); }
 .budget.bad .b-msg, .warn-text { color: var(--warn); }
 .budget.bad .b-msg { color: var(--bad); }
+
+/* ── 選秀即時同步 ── */
+.ds-banner { padding: 10px 12px; border-radius: 10px; background: var(--surface-2); margin: 10px 0 6px; font-size: 15px; display: flex; flex-wrap: wrap; gap: 8px; align-items: center; justify-content: space-between; }
+.ds-banner.now { background: rgba(250, 204, 21, 0.15); color: var(--warn); font-weight: 700; }
+.ds-banner.warn { color: var(--warn); }

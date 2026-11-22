@@ -6,7 +6,7 @@ export class LoginNeeded extends Error {}
 
 let seq = 0;
 const pending = new Map();
-window.__bridgeResolve = (id, res) => {
+if (typeof window !== 'undefined') window.__bridgeResolve = (id, res) => {
   const p = pending.get(id);
   if (!p) return;
   pending.delete(id);
@@ -14,7 +14,7 @@ window.__bridgeResolve = (id, res) => {
   else p.reject(new Error(res?.error || '連線失敗'));
 };
 
-export const hasBridge = () => !!window.AndroidBridge;
+export const hasBridge = () => typeof window !== 'undefined' && !!window.AndroidBridge;
 export const login = () => window.AndroidBridge?.login();
 export const logout = () => window.AndroidBridge?.logout();
 
