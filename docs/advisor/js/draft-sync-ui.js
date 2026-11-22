@@ -168,7 +168,7 @@ function starRows(recs) {
   const top = recs[0];
   const lv = (r, i) => (i === 0 ? 3 : r.score >= top.score - Math.abs(top.score) * 0.05 ? 2 : r.score >= top.score - Math.abs(top.score) * 0.15 ? 1 : 0);
   const TAG = ['<span class="tag">備案</span>', '<span class="tag lv1">⭐ 可以考慮</span>', '<span class="tag lv2">⭐⭐ 也很好</span>', '<span class="tag lv3">⭐⭐⭐ 最推薦</span>'];
-  return recs.slice(0, 3).map((r, i) => `<div class="mn-row"><div><b>${esc(r.p.name)}</b> <span class="pos">${esc(r.p.pos)}</span> ${TAG[lv(r, i)]}
+  return recs.slice(0, 3).map((r, i) => `<div class="mn-row tap-taken" data-taken="${r.p.id}" role="button"><div><b>${esc(r.p.name)}</b> <span class="pos">${esc(r.p.pos)}</span> ${TAG[lv(r, i)]}
       <div class="muted small">${esc(r.reasons[0] ?? '')}</div></div>${takenBtn(r.p)}</div>`).join('') + backupLine(recs);
 }
 // 「被選走」：在 Yahoo 看到別人選了他，按一下立刻從推薦拿掉（可復原）
@@ -200,7 +200,7 @@ function renderFocus() {
     <div class="fc-top"><span class="muted small">第 ${s.done ? ROUNDS : Math.ceil(s.nextOverall / TEAMS)} 輪｜已選 ${s.made.length}/${TEAMS * ROUNDS}</span><button type="button" class="btn" id="ds-focus-close">離開</button></div>
     <div class="fc-hero ${now ? 'now' : ''}"><div class="fc-n">${big}</div><div class="fc-s">${esc(sub)}</div></div>
     ${now ? '<button type="button" class="btn primary fc-room" id="ds-room">打開 Yahoo 選秀室</button>' : ''}
-    ${recs.length ? `<h3>App 建議選 <span class="muted small">（別人選走了就按「被選走」）</span></h3>${recs.slice(0, 3).map((r, i) => `<div class="fc-rec"><div class="fc-i">${i + 1}</div><div><div class="fc-name">${esc(r.p.name)} <span class="pos">${esc(r.p.pos)}</span></div><div class="muted small">${esc(r.reasons[0] ?? '')}</div></div>${takenBtn(r.p)}</div>`).join('')}${backupLine(recs)}` : ''}
+    ${recs.length ? `<h3>App 建議選 <span class="muted small">（別人選走了就按「被選走」）</span></h3>${recs.slice(0, 3).map((r, i) => `<div class="fc-rec tap-taken" data-taken="${r.p.id}" role="button"><div class="fc-i">${i + 1}</div><div><div class="fc-name">${esc(r.p.name)} <span class="pos">${esc(r.p.pos)}</span></div><div class="muted small">${esc(r.reasons[0] ?? '')}</div></div>${takenBtn(r.p)}</div>`).join('')}${backupLine(recs)}` : ''}
     ${last.length ? `<h3>剛剛被選</h3>${last.map((m) => `<div class="sumline small">${m.overall}. ${esc(m.player?.name ?? m.name)}<span class="muted">｜${esc(m.team ?? '')}</span></div>`).join('')}` : ''}`;
 }
 function openFocus(on) {
@@ -241,7 +241,7 @@ function renderOther() {
   const marks = st.getMarks?.() ?? {};
   const taken = new Set([...(st.ctx?.s.takenIds ?? [])]);
   const hits = st.getBoard().filter((p) => p.name.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').includes(q) && !taken.has(p.id) && !marks[p.id]).slice(0, 6);
-  res.innerHTML = hits.map((p) => `<div class="mn-row"><div><b>${esc(p.name)}</b> <span class="pos">${esc(p.pos)}</span> <span class="muted small">選秀表第 ${p.rank}</span></div>${takenBtn(p)}</div>`).join('') || '<div class="muted small">找不到（可能已經標過了）</div>';
+  res.innerHTML = hits.map((p) => `<div class="mn-row tap-taken" data-taken="${p.id}" role="button"><div><b>${esc(p.name)}</b> <span class="pos">${esc(p.pos)}</span> <span class="muted small">選秀表第 ${p.rank}</span></div>${takenBtn(p)}</div>`).join('') || '<div class="muted small">找不到（可能已經標過了）</div>';
 }
 
 function renderButtons() {
@@ -280,7 +280,7 @@ function render() {
   const cnt = open.reduce((m, x) => ((m[x] = (m[x] ?? 0) + 1), m), {});
   const missing = Object.entries(cnt).map(([k, n]) => (n > 1 ? `${k}×${n}` : k)).join('、');
 
-  const recHtml = recs.length ? `<h3>App 建議選 <span class="muted small">（別人選走了就按「被選走」，會立刻換人）</span></h3>${starRows(recs)}` : '';
+  const recHtml = recs.length ? `<h3>App 建議選 <span class="muted small">（別人選走誰，就點誰，會立刻換下一個）</span></h3>${starRows(recs)}` : '';
   const predHtml = atMine && s.picksUntil > 0 ? `<details class="sub"><summary>輪到你時，大概還剩誰？</summary>
       <div class="sumline">應該還在：${atMine.stay.slice(0, 6).map((p) => esc(p.name)).join('、')}</div>
       <div class="sumline muted">可能被搶走：${atMine.gone.sort((a, b) => a.rank - b.rank).slice(0, 6).map((p) => esc(p.name)).join('、') || '—'}</div></details>` : '';

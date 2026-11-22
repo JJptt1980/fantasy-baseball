@@ -106,7 +106,7 @@ async function continueGame() {
 // ── 選秀室（像 Yahoo）：別隊照節奏一個一個選、輪到你有倒數、時間到自動選 ──
 const LS_ROOM = 'mn.room';
 const roomCfg = () => lsGet(LS_ROOM, { clock: 60, speed: 1 });
-const room = { reveal: [], shown: 0, timer: null, tick: null, deadline: null, warned: false, soon: false, sel: null, tab: 'players' };
+const room = { reveal: [], shown: 0, timer: null, tick: null, deadline: null, warned: false, soon: false, sel: null, tab: 'players', confirmed: new Set() };
 function roomStop() { clearTimeout(room.timer); clearInterval(room.tick); room.timer = null; room.tick = null; }
 function roomReset() { roomStop(); room.reveal = []; room.shown = 0; room.deadline = null; room.sel = null; }
 // 還沒「播出來」的別隊選擇：畫面上當作還沒被選
@@ -303,7 +303,13 @@ function renderDraft() {
     body = `${myTurn ? `<div class="card" id="mn-recs"><div class="sumline small">還缺 <b>${esc(openTxt || '—')}</b>${opt.forced ? '｜<b class="bad-text">只能選缺的位置</b>' : ''}</div>
         ${starred.map((p) => row(p, opt.recommended.indexOf(p))).join('')}
         ${others.length ? `<div class="backup">🔄 上面的都不要？改看：<b>${others.slice(0, 2).map((p) => esc(p.name)).join('</b>、<b>')}</b></div>` : ''}</div>`
-      : `<div class="card"><div class="muted small">還沒輪到你，可以先看看球員。輪到你時會震動，並給你 3 個建議。</div></div>`}
+      : `${(() => {
+          const last = room.reveal[room.shown - 1];
+          if (!last || room.confirmed.has(last.player.id)) return '<div class="card"><div class="muted small">還沒輪到你。別人選走誰，就點誰記下來（跟正式選秀一樣）。輪到你時會震動。</div></div>';
+          return `<div class="card just-card"><div class="muted small">剛剛 <b>${esc(g.names[last.team])}</b> 選了：</div>
+            <div class="pick-row just" data-confirm="${last.player.id}" role="button"><div class="pk-main"><b>${esc(last.player.name)}</b> <span class="pos">${esc(last.player.pos)}</span>
+              <div class="verdict">👆 點一下記下他被選走</div></div></div></div>`;
+        })()}`}
       <details class="card" ${st.q || st.pos || !myTurn ? 'open' : ''}><summary>全部球員</summary>
         <div class="toolbar" style="margin-top:8px"><input id="mn-q" type="search" placeholder="打名字找人" value="${esc(st.q)}">
           <select id="mn-pos">${['', 'B', 'P', 'C', '1B', '2B', '3B', 'SS', 'OF', 'DH', 'SP', 'RP'].map((v) => `<option value="${v}" ${st.pos === v ? 'selected' : ''}>${v === '' ? '全部' : v === 'B' ? '打者' : v === 'P' ? '投手' : v}</option>`).join('')}</select></div>
@@ -520,9 +526,23 @@ export function initManual({ getSelection, getSeason, getProfiles }) {
         if (p) openPlayerCard(p, { season: st.prep.season - 1, lead: p.recReasons ? recSentence(p) : undefined, actions: revealing() ? [] : [{ label: `選 ${p.name}`, primary: true, run: () => draftWithUndo(() => st.g.draftPick(id), p.name) }] });
         return;
       }
+      const cf = e.target.closest('[data-confirm]');
+      if (cf) {
+        const id = Number(cf.dataset.confirm);
+        const x = room.reveal.find((y) => y.player.id === id);
+        room.confirmed.add(id);
+        haptic('mark');
+        toast(`記下：${x?.player.name ?? ''} 被 ${x ? st.g.names[x.team] : ''} 選走`);
+        return renderDraft();
+      }
       const row = e.target.closest('.pick-row');
       if (row && !e.target.closest('select, input')) {
-        if (revealing()) { toast('還沒輪到你，輪到你時會震動'); return; }
+        if (revealing()) {
+          const cur = pendingPicks()[0];
+          const nm = row.querySelector('b')?.textContent ?? '';
+          toast(`${nm} 還沒被選走（現在輪到 ${st.g.names[cur.team]} 選）`);
+          return;
+        }
         room.sel = Number(row.dataset.sel);
         haptic('tap');
         return renderDraft();

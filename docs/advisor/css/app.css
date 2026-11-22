@@ -489,3 +489,6 @@ details.card, .card, #mn-recs { scroll-margin-top: 64px; }
 body { font-weight: 450; }
 b, strong, h1, h2, h3, .name, .sh-name, .fc-name { font-weight: 700; }
 .muted, .small { font-weight: 450; }
+.tap-taken { cursor: pointer; }
+.tap-taken:active { background: var(--bad-soft); }
+.just-card .pick-row.just { border: 2px dashed var(--warn); border-radius: 12px; margin-top: 6px; }
