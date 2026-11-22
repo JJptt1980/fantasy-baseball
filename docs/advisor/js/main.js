@@ -3,6 +3,7 @@ import { buildPlayers, board } from './rank.js';
 import { BASE, STRATEGIES, PREFS, buildConfig } from './strategies.js';
 import { initPickup } from './pickup-ui.js';
 import { initDemo } from './demo-ui.js';
+import { initLive } from './live-ui.js';
 
 const $ = (s) => document.querySelector(s);
 const LS = { strat: 'adv.strategies', prefs: 'adv.prefs', notes: 'adv.notes', marks: 'adv.marks', tab: 'adv.tab' };
@@ -155,6 +156,8 @@ function showTab(tab) {
   $('#tab-draft').hidden = tab !== 'draft';
   $('#tab-pickup').hidden = tab !== 'pickup';
   $('#tab-demo').hidden = tab !== 'demo';
+  $('#tab-live').hidden = tab !== 'live';
+  if (tab === 'live') live?.onShow();
   lsSet(LS.tab, tab);
   if (tab === 'pickup') pickup?.onShow();
 }
@@ -174,9 +177,11 @@ async function load() {
 }
 
 let pickup = null;
+let live = null;
 renderChecks();
 bind();
 pickup = initPickup();
+live = initLive({ getBoard: () => state.ranked, weeklyUrl: `data/weekly-${lastSeason()}.json` });
 initDemo({ getBoard: () => state.ranked, getConfig: () => buildConfig(state.selected, state.prefs), getSeason: () => state.season });
 showTab(lsGet(LS.tab, 'draft'));
 load();

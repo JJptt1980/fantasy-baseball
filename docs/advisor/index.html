@@ -12,10 +12,11 @@
 </head>
 <body>
   <header class="topbar">
-    <h1>⚾ 選秀大師</h1>
+    <h1>⚾<span class="t"> 選秀大師</span></h1>
     <nav class="tabs" role="tablist">
       <button type="button" class="tab active" data-tab="draft" role="tab">選秀</button>
       <button type="button" class="tab" data-tab="pickup" role="tab">撿人</button>
+      <button type="button" class="tab" data-tab="live" role="tab">即時</button>
       <button type="button" class="tab" data-tab="demo" role="tab">Demo</button>
     </nav>
   </header>
@@ -88,6 +89,25 @@
 
       <div class="card" id="pk-picked" hidden></div>
     </section>
+    <section id="tab-live" hidden>
+      <div class="seg" id="lv-mode">
+        <button type="button" data-mode="live" class="on">即時（本週）</button>
+        <button type="button" data-mode="replay">重播 2026</button>
+      </div>
+      <div class="card" id="lv-replay" hidden>
+        <div class="two">
+          <label>週次<select id="lv-week"></select></label>
+          <label>播放<select id="lv-speed"><option value="4000">慢</option><option value="2500" selected>中</option><option value="1200">快</option></select></label>
+        </div>
+        <div class="chips" id="lv-days" style="margin-top:10px"></div>
+        <div class="demo-btns"><button type="button" class="btn primary" id="lv-play">▶ 播放這一週</button></div>
+      </div>
+      <div id="lv-status" class="status" hidden></div>
+      <div class="card" id="lv-head" hidden></div>
+      <div class="card" id="lv-cats" hidden></div>
+      <div class="card" id="lv-players" hidden></div>
+    </section>
+
     <section id="tab-demo" hidden>
       <div class="card">
         <h2>虛擬跑一次 2027</h2>

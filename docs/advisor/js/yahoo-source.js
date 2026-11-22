@@ -47,8 +47,9 @@ export async function matchup(league, week) {
   return web.parseMatchupPage(await getDoc(path));
 }
 
-export async function roster(league, teamId) {
-  return web.parseRoster(await getDoc(`/${league.key}/${teamId}`));
+// date（YYYY-MM-DD）：讀那一天的陣容與先發格子
+export async function roster(league, teamId, date) {
+  return web.parseRoster(await getDoc(`/${league.key}/${teamId}${date ? `?date=${date}` : ''}`));
 }
 
 // 可撿的球員（自由球員＋waiver），依最近 14 天表現排序，打者、投手各抓 pages 頁（每頁 25 人）
