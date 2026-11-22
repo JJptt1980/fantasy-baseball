@@ -37,8 +37,11 @@ async function getDoc(path) {
   return new DOMParser().parseFromString(res.text, 'text/html');
 }
 
+// 沒登入時 Yahoo 首頁不會轉到登入頁，只是沒有聯盟 → 當成需要登入
 export async function leagues() {
-  return web.parseHome(await getDoc('/'));
+  const list = web.parseHome(await getDoc('/'));
+  if (!list.length) throw new LoginNeeded('請先登入 Yahoo（登入後還是沒有，代表這個帳號沒有棒球聯盟）');
+  return list;
 }
 
 // 對戰頁：本週（或指定週）的對手

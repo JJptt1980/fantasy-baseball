@@ -78,7 +78,9 @@ export function weeklyIndex(maps, days) {
       OPS: Number(s.ops) || 0,
     };
     p.AVG = p.AB ? p.H / p.AB : 0;
-    idx.set(`B:${normName(h.name)}`, p);
+    // 同名球員：留出賽多的
+    const kb = `B:${normName(h.name)}`;
+    if (!idx.has(kb) || idx.get(kb).PA < p.PA) idx.set(kb, p);
   }
   for (const h of maps.pit.values()) {
     const s = h.stat;
@@ -92,7 +94,8 @@ export function weeklyIndex(maps, days) {
       BB: (s.baseOnBalls ?? 0) * f, K: (s.strikeOuts ?? 0) * f, ER: (s.earnedRuns ?? 0) * f,
       WH: ((s.baseOnBalls ?? 0) + (s.hits ?? 0)) * f, QS: qs * f,
     };
-    idx.set(`P:${normName(h.name)}`, p);
+    const kp = `P:${normName(h.name)}`;
+    if (!idx.has(kp) || idx.get(kp).IP < p.IP) idx.set(kp, p);
   }
   return idx;
 }

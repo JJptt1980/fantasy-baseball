@@ -30,7 +30,11 @@ const probCls = (p) => (p > 0.6 ? 'good' : p >= 0.4 ? 'warn' : 'bad');
 
 // ── 陣容來源 ──
 // App 內：Yahoo（指定日期的真實陣容）；瀏覽器預覽：用選秀表做示範陣容
-async function rosters(date, weekNo) {
+const rosterCache = new Map();
+async function rosters(weekNo, year, today) {
+  st.maps ??= {};
+  st.maps[year] ??= toMaps(await seasonStats(year));
+  const maps = st.maps[year];
   if (Y.hasBridge()) {
     if (!st.league) {
       const ls = await Y.leagues();
@@ -39,15 +43,30 @@ async function rosters(date, weekNo) {
     }
     const mu = await Y.matchup(st.league, weekNo);
     const [meT, oppT] = mu.matchup?.teams ?? [];
-    if (!oppT) return { me: null, opp: null, oppName: null, week: { start: mu.weekStart, end: mu.weekEnd }, weekNo: mu.week };
-    const [me, opp] = await Promise.all([Y.roster(st.league, st.league.teamId ?? meT.key, date), Y.roster(st.league, oppT.key, date)]);
-    return { me, opp, oppName: oppT.name, week: { start: mu.weekStart, end: mu.weekEnd }, weekNo: mu.week };
+    const week = { start: mu.weekStart, end: mu.weekEnd };
+    if (!oppT) return { oppName: null, week, weekNo: mu.week };
+    const myId = st.league.teamId ?? meT.key;
+    // 過去的日期陣容不會再變 → 快取；今天的每次重抓
+    const get = async (teamId, date) => {
+      const key = `${teamId}@${date}`;
+      if (date < today && rosterCache.has(key)) return rosterCache.get(key);
+      const r = resolveRoster(await Y.roster(st.league, teamId, date), maps);
+      rosterCache.set(key, r);
+      return r;
+    };
+    const rosterAt = async (date) => {
+      const [me, opp] = await Promise.all([get(myId, date), get(oppT.key, date)]);
+      return { me, opp };
+    };
+    return { rosterAt, oppName: oppT.name, week, weekNo: mu.week };
   }
   const board = st.getBoard?.() ?? [];
   if (!board.length) throw new Error('選秀表還沒載入完成');
   const snake = (slot) => board.filter((_, i) => { const r = Math.floor(i / 12); const k = i % 12; return (r % 2 ? 11 - k : k) === slot; }).slice(0, 25);
-  const toR = (list) => list.map((p, i) => ({ name: p.name, side: p.side, slot: i < 23 ? (p.side === 'B' ? 'Util' : 'P') : 'BN' }));
-  return { me: toR(snake(0)), opp: toR(snake(1)), oppName: '示範對手（電腦預覽，非 Yahoo 資料）', week: null, weekNo };
+  const toR = (list) => resolveRoster(list.map((p, i) => ({ name: p.name, side: p.side, slot: i < 23 ? (p.side === 'B' ? 'Util' : 'P') : 'BN' })), maps);
+  const me = toR(snake(0));
+  const opp = toR(snake(1));
+  return { rosterAt: async () => ({ me, opp }), oppName: '示範對手（電腦預覽，非 Yahoo 資料）', week: null, weekNo };
 }
 
 // ── 計算＋畫面 ──
@@ -70,18 +89,16 @@ async function refresh() {
       past = false;
     }
     status('讀取陣容…');
-    const r = await rosters(st.mode === 'replay' ? now : null, weekNo);
+    const today = new Date().toISOString().slice(0, 10);
+    const r = await rosters(weekNo, Number(now.slice(0, 4)), today);
     week ??= r.week;
-    if (!r.opp) { status('這週沒有對手（輪空或季後賽已結束）。休賽季請切到「重播 2026」。', 'warn'); return clear(); }
+    if (!r.rosterAt) { status('這週沒有對手（輪空或季後賽已結束）。休賽季請切到「重播 2026」。', 'warn'); return clear(); }
     if (!week?.start || now > week.end || now < week.start) {
       status('現在不在比賽週內（休賽季）。請切到「重播 2026」看看實際運作。', 'warn');
       return clear();
     }
-    const year = Number(now.slice(0, 4));
-    status('讀取 MLB 即時數據…');
-    st.maps ??= {};
-    st.maps[year] ??= toMaps(await seasonStats(year));
-    const res = await track({ now, week, me: resolveRoster(r.me, st.maps[year]), opp: resolveRoster(r.opp, st.maps[year]), past });
+    status('讀取逐日陣容與 MLB 數據…');
+    const res = await track({ now, week, rosterAt: r.rosterAt, past });
     status('');
     render(res, { now, week, oppName: r.oppName, weekNo: r.weekNo });
     scheduleAuto(res);

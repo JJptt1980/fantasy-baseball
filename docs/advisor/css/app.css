@@ -157,3 +157,6 @@ h3.first { margin-top: 0; }
 @media (max-width: 440px) { .topbar h1 .t { display: none; } .tab { padding: 6px 9px; font-size: 15px; } }
 .lv th:first-child, .lv td:first-child { text-align: left; }
 .lv th:nth-child(2), .lv td:nth-child(2) { text-align: right; }
+.lv th, .lv td { white-space: nowrap; padding: 6px 3px; font-size: 13px; }
+.lv .pill { min-width: 34px; padding: 2px 6px; }
+#lv-cats { overflow-x: auto; }

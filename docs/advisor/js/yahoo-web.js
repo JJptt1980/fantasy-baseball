@@ -150,6 +150,8 @@ export function parseRoster(doc) {
       out.push({
         name: text(a),
         yahooId: a.getAttribute('href')?.match(/players\/(\d+)/)?.[1] ?? null,
+        // 當天比賽連結（例：…/mlb/atlanta-braves-miami-marlins-460927128/），用來分辨同名球員
+        game: tr.querySelector('.ysf-player-detail a[href*="/mlb/"]')?.getAttribute('href')?.match(/\/mlb\/([a-z0-9-]+)\/?$/)?.[1] ?? null,
         slot: tr.querySelector('[data-pos]')?.getAttribute('data-pos') ?? text(tr.cells[0]),
         status: text(tr.querySelector('.player-status')),
         side,

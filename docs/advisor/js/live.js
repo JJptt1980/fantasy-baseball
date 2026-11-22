@@ -81,23 +81,39 @@ const scaleLine = (l, k) => {
 
 // ── 陣容對應到 MLB 球員 ──
 // roster：[{ name, side, slot }]；seasonMaps：toMaps(seasonStats(年))
+// 同名球員（例如兩個 Max Muncy）：看他的球隊有沒有出現在 Yahoo 當天的比賽連結；都沒有就選出賽多的
 export function resolveRoster(roster, seasonMaps) {
   const idx = new Map();
-  for (const h of seasonMaps.hit.values()) if (h.pos !== 'P') idx.set(`B:${normName(h.name)}`, { id: h.id, team: h.team });
-  for (const p of seasonMaps.pit.values()) idx.set(`P:${normName(p.name)}`, { id: p.id, team: p.team });
+  const add = (key, v) => { if (!idx.has(key)) idx.set(key, []); idx.get(key).push(v); };
+  for (const h of seasonMaps.hit.values()) if (h.pos !== 'P') add(`B:${normName(h.name)}`, { id: h.id, team: h.team, n: h.stat.plateAppearances ?? 0 });
+  for (const p of seasonMaps.pit.values()) add(`P:${normName(p.name)}`, { id: p.id, team: p.team, n: p.stat._ip ?? 0 });
+  const slug = (t) => String(t ?? '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9]+/g, '-');
   return roster.map((r) => {
-    const m = idx.get(`${r.side}:${normName(r.name)}`);
+    const cands = idx.get(`${r.side}:${normName(r.name)}`) ?? [];
+    const m = cands.length > 1
+      ? (r.game && cands.find((c) => c.team && r.game.includes(slug(c.team)))) || [...cands].sort((a, b) => b.n - a.n)[0]
+      : cands[0];
     return { ...r, id: m?.id ?? null, team: m?.team ?? null, active: !['BN', 'IL', 'IL+', 'NA'].includes(r.slot) };
   });
 }
 
 // ── 主計算 ──
-// now：YYYY-MM-DD（今天或重播日）；week：{ start, end }；me / opp：resolveRoster 結果
-export async function track({ now, week, me, opp, past = false }) {
+// now：YYYY-MM-DD（今天或重播日）；week：{ start, end }
+// rosterAt(date) → { me, opp }（resolveRoster 結果）：Yahoo 逐日計分，每天只算當天在先發格子的球員
+export async function track({ now, week, rosterAt, past = false }) {
   const yesterday = addDays(now, -1);
   const recentStart = addDays(now, -14);
-  const [wtd, recent, today, rest, recentGames] = await Promise.all([
-    range(week.start, yesterday, past || true),
+  const { me, opp } = await rosterAt(now);
+  // 本週至今：逐日（當天陣容 × 當天成績）
+  const days = [];
+  for (let d = week.start; d < now; d = addDays(d, 1)) days.push(d);
+  const daily = await Promise.all(days.map(async (d) => {
+    const [stats, r] = await Promise.all([range(d, d, true), rosterAt(d)]);
+    const lines = (roster) => roster.filter((p) => p.active && p.id).map((p) => statToLine(p.side, stats[p.side === 'B' ? 'hit' : 'pit'].get(p.id))).filter(Boolean);
+    return { me: lines(r.me), opp: lines(r.opp) };
+  }));
+  const wtdLines = { me: daily.flatMap((x) => x.me), opp: daily.flatMap((x) => x.opp) };
+  const [recent, today, rest, recentGames] = await Promise.all([
     range(recentStart, yesterday, true),
     scheduleRange(now, now, past),
     scheduleRange(addDays(now, 1), week.end, past || true),
@@ -143,29 +159,31 @@ export async function track({ now, week, me, opp, past = false }) {
     return { game: g, line: played ? statToLine(p.side, st) : null, summary: played ? st.summary : null };
   };
 
-  const build = (roster) => {
+  const build = (roster, wtdList) => {
     const players = roster.map((p) => {
-      if (!p.id) return { ...p, wtd: null, today: { game: null }, rem: null };
+      if (!p.id) return { ...p, today: { game: null }, rem: null };
       const m = p.side === 'B' ? 'hit' : 'pit';
-      const wtdLine = statToLine(p.side, wtd[m].get(p.id));
       const td = playerToday(p);
       // 剩餘：最近 14 天「每場球隊比賽」的平均 × 本週剩餘場數（今天還沒打完的場次算半場）
       const rec = statToLine(p.side, recent[m].get(p.id));
       const tg = recentCount.get(p.team) || 13;
       const left = (restCount.get(p.team) ?? 0) + (td.game && td.game.status?.abstractGameState !== 'Final' && !td.line ? 1 : 0);
       const rem = rec && left ? scaleLine(rec, left / tg) : null;
-      return { ...p, wtd: wtdLine, today: td, rem, left };
+      return { ...p, today: td, rem, left };
     });
     const active = players.filter((p) => p.active);
-    const cur = teamLine(active.flatMap((p) => [p.wtd, p.today.line].filter(Boolean)));
-    const proj = teamLine(active.flatMap((p) => [p.wtd, p.today.line, p.rem].filter(Boolean)));
+    const todayLines = active.map((p) => p.today.line).filter(Boolean);
+    const cur = teamLine([...wtdList, ...todayLines]);
+    const proj = teamLine([...wtdList, ...todayLines, ...active.map((p) => p.rem).filter(Boolean)]);
     for (const t of [cur, proj]) if (!t.IP) { t['P:ERA'] = NaN; t['P:WHIP'] = NaN; }
     return { players, cur, proj };
   };
 
-  const A = build(me);
-  const B = build(opp);
-  const daysLeft = Math.max(0, daysBetween(now, week.end)) + 0.5;
+  const A = build(me, wtdLines.me);
+  const B = build(opp, wtdLines.opp);
+  const allDone = today.every((g) => ['Final'].includes(g.status?.abstractGameState) || g.status?.detailedState === 'Postponed');
+  // 週末最後一天且比賽都打完 → 勝負已定
+  const daysLeft = Math.max(0, daysBetween(now, week.end)) + (now >= week.end && allDone ? 0.002 : 0.5);
   const frac = Math.min(1, daysLeft / 7);
 
   const cats = CATS.map((c) => {
