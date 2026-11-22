@@ -1,0 +1,164 @@
+// 選秀排名（移植自 sim/rank.py，兩邊邏輯要一致）
+// West Bay Star：12 隊、H2H 18 類別
+import { ipToFloat } from './mlb.js';
+
+const OF = new Set(['LF', 'CF', 'RF', 'OF']);
+
+export const DEFAULT_CONFIG = {
+  weights: {},          // 'B:HR' → 倍率；沒寫的類別 = 1
+  youngAge: 26,
+  youngBonus: 0.08,
+  oldAge: 99,
+  oldPenalty: 0,
+  injuryPenalty: 0.12,
+  catcherPenalty: 0.5,
+  avoidKPenalty: 4.0,   // 三振率 > 28% 且打擊率 < .240
+  maxReach: 15,
+  keyTransform: null,   // (p, key, spRank) => key
+};
+
+function estQs(st) {
+  const gs = st.gamesStarted ?? 0;
+  if (!gs) return 0;
+  const ipPer = st._ip / gs;
+  const depth = Math.min(1, Math.max(0, (ipPer - 4.3) / 1.9));
+  const era = st._ip ? ((st.earnedRuns ?? 0) * 9) / st._ip : 9;
+  const quality = Math.min(1, Math.max(0.15, (5.4 - era) / 2.6));
+  return gs * depth * quality;
+}
+
+// maps：{ hit, pit }（本季）；prev：{ hit, pit }（上一季，判斷傷病與進步）
+export function buildPlayers(maps, prev) {
+  const players = [];
+  for (const [id, h] of maps.hit) {
+    const st = h.stat;
+    if ((st.atBats ?? 0) < 150 || h.pos === 'P') continue;
+    const p25 = prev?.hit.get(id)?.stat ?? {};
+    players.push({
+      id, name: h.name, team: h.team, side: 'B', pos: OF.has(h.pos) ? 'OF' : h.pos, age: st.age,
+      G: st.gamesPlayed ?? 0, G25: p25.gamesPlayed ?? 0,
+      AB: st.atBats, PA: st.plateAppearances ?? st.atBats,
+      R: st.runs, H: st.hits, HR: st.homeRuns, RBI: st.rbi, SB: st.stolenBases,
+      BB: st.baseOnBalls, K: st.strikeOuts, AVG: st.hits / st.atBats, OPS: Number(st.ops) || 0,
+      OPS25: (p25.atBats ?? 0) >= 150 ? Number(p25.ops) || 0 : null,
+    });
+  }
+  for (const [id, p] of maps.pit) {
+    const st = p.stat;
+    const ip = st._ip ?? ipToFloat(st.inningsPitched);
+    if (ip < 30) continue;
+    const gs = st.gamesStarted ?? 0;
+    const p25 = prev?.pit.get(id)?.stat ?? {};
+    players.push({
+      id, name: p.name, team: p.team, side: 'P', pos: gs >= 8 ? 'SP' : 'RP', age: st.age,
+      IP: ip, IP25: p25._ip ?? 0, GS: gs,
+      W: st.wins ?? 0, L: st.losses ?? 0, SV: st.saves ?? 0, HLD: st.holds ?? 0,
+      BB: st.baseOnBalls ?? 0, K: st.strikeOuts ?? 0, ER: st.earnedRuns ?? 0,
+      WH: (st.baseOnBalls ?? 0) + (st.hits ?? 0), QS: estQs({ ...st, _ip: ip }),
+    });
+  }
+  return players;
+}
+
+// 每類別對球隊的貢獻（越小越好的類別已反轉）
+export function contributions(p) {
+  if (p.side === 'B') {
+    return {
+      'B:R': p.R, 'B:H': p.H, 'B:HR': p.HR, 'B:RBI': p.RBI, 'B:SB': p.SB, 'B:BB': p.BB,
+      'B:K': -p.K, 'B:AVG': p.H - 0.25 * p.AB, 'B:OPS': (p.OPS - 0.74) * p.PA,
+    };
+  }
+  return {
+    'P:W': p.W, 'P:SV': p.SV, 'P:K': p.K, 'P:HLD': p.HLD, 'P:QS': p.QS,
+    'P:L': -p.L, 'P:BB': -p.BB, 'P:ERA': (3.9 * p.IP) / 9 - p.ER, 'P:WHIP': 1.24 * p.IP - p.WH,
+  };
+}
+
+function zScore(players, weights) {
+  for (const [side, top] of [['B', 220], ['P', 200]]) {
+    const pool = players.filter((p) => p.side === side);
+    const size = (p) => (side === 'B' ? p.PA * (p.OPS || 0) : p.IP + 3 * p.SV + 2 * p.HLD);
+    pool.sort((a, b) => size(b) - size(a));
+    const cs = pool.slice(0, top).map(contributions);
+    const stat = {};
+    for (const cat of Object.keys(cs[0] ?? {})) {
+      const vals = cs.map((c) => c[cat]);
+      const m = vals.reduce((a, b) => a + b, 0) / vals.length;
+      const sd = Math.sqrt(vals.reduce((a, x) => a + (x - m) ** 2, 0) / vals.length) || 1;
+      stat[cat] = [m, sd];
+    }
+    for (const p of pool) {
+      const c = contributions(p);
+      p.z = {};
+      p.raw = 0;
+      for (const [cat, v] of Object.entries(c)) {
+        p.z[cat] = (v - stat[cat][0]) / stat[cat][1];
+        p.raw += p.z[cat] * (weights[cat] ?? 1);
+      }
+    }
+  }
+}
+
+function adjust(p, cfg) {
+  let v = p.raw;
+  const notes = [];
+  if (p.age && p.age <= cfg.youngAge && v > 0) {
+    v *= 1 + cfg.youngBonus;
+    notes.push('上升股');
+  }
+  if (p.side === 'B' && p.OPS25 && p.OPS - p.OPS25 > 0.06 && p.age <= 28) {
+    notes.push(`OPS 比前一季進步 +${(p.OPS - p.OPS25).toFixed(3)}`);
+  }
+  if (p.age && p.age >= cfg.oldAge && v > 0) {
+    v *= 1 - cfg.oldPenalty;
+    notes.push('年紀偏大');
+  }
+  const hurt =
+    (p.side === 'B' && Math.min(p.G, p.G25 || p.G) < 110) ||
+    (p.side === 'P' && p.pos === 'SP' && Math.min(p.IP, p.IP25 || p.IP) < 110);
+  if (hurt && v > 0) {
+    v *= 1 - cfg.injuryPenalty;
+    notes.push('近兩季出賽不足');
+  }
+  if (p.pos === 'C' && v > 0) {
+    v *= 1 - cfg.catcherPenalty;
+    notes.push('捕手晚選');
+  }
+  if (p.side === 'B' && p.K / p.PA > 0.28 && p.AVG < 0.24) {
+    v -= cfg.avoidKPenalty;
+    if (cfg.avoidKPenalty) notes.push('三振多＋打擊率低，避開');
+  }
+  if (p.side === 'P' && p.IP && (p.BB * 9) / p.IP > 3.6) notes.push(`保送偏多 BB/9 ${((p.BB * 9) / p.IP).toFixed(1)}`);
+  p.value = v;
+  p.notes = notes;
+}
+
+// 回傳選秀順序（每人含 rank、round、marketRank、value、notes）
+export function board(basePlayers, config = {}) {
+  const cfg = { ...DEFAULT_CONFIG, ...config, weights: { ...(config.weights ?? {}) } };
+  // 市場排名：不帶偏好的均衡原始分數
+  const market = basePlayers.map((p) => ({ ...p }));
+  zScore(market, {});
+  const mrank = new Map([...market].sort((a, b) => b.raw - a.raw).map((p, i) => [p.id, i + 1]));
+
+  const mine = basePlayers.map((p) => ({ ...p }));
+  zScore(mine, cfg.weights);
+  mine.forEach((p) => adjust(p, cfg));
+  mine.sort((a, b) => b.value - a.value);
+  mine.forEach((p, i) => {
+    p.myRank = i + 1;
+    p.marketRank = mrank.get(p.id);
+    p.key = Math.max(i + 1, p.marketRank - cfg.maxReach);
+  });
+  if (cfg.keyTransform) {
+    const sps = mine.filter((p) => p.pos === 'SP').sort((a, b) => b.value - a.value);
+    const spRank = new Map(sps.map((p, i) => [p.id, i + 1]));
+    for (const p of mine) p.key = cfg.keyTransform(p, p.key, spRank.get(p.id));
+  }
+  mine.sort((a, b) => a.key - b.key || b.value - a.value);
+  mine.forEach((p, i) => {
+    p.rank = i + 1;
+    p.round = Math.ceil((i + 1) / 12);
+  });
+  return mine;
+}

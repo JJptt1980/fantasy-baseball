@@ -1,0 +1,60 @@
+<!doctype html>
+<html lang="zh-Hant-TW">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+  <meta name="theme-color" content="#0b1220">
+  <meta name="color-scheme" content="dark">
+  <title>選秀大師</title>
+  <link rel="icon" href="../icons/icon-192.png" type="image/png">
+  <link rel="stylesheet" href="css/app.css">
+  <script type="module" src="js/main.js"></script>
+</head>
+<body>
+  <header class="topbar">
+    <h1>⚾ 選秀大師</h1>
+    <nav class="tabs" role="tablist">
+      <button type="button" class="tab active" data-tab="draft" role="tab">選秀</button>
+      <button type="button" class="tab" data-tab="pickup" role="tab">撿人</button>
+    </nav>
+  </header>
+
+  <main>
+    <section id="tab-draft">
+      <details class="card" id="strategy-box" open>
+        <summary>選秀方向 <span class="muted" id="strategy-summary"></span></summary>
+        <p class="muted small">底層一律是「均衡＋輕度偏好」（模擬奪冠 30.8%，最強）。勾流派會疊加上去；勾多個是混合，混合組合沒有模擬過。</p>
+        <h3>偏好</h3>
+        <div id="prefs" class="checks"></div>
+        <h3>流派 <span class="muted small">（括號：模擬奪冠率／進季後賽率）</span></h3>
+        <div id="strategies" class="checks"></div>
+        <h3>我的想法</h3>
+        <textarea id="my-notes" rows="3" placeholder="想到什麼寫在這裡，例如「我想多拿 SV」，會存在手機上"></textarea>
+      </details>
+
+      <div class="toolbar">
+        <input id="search" type="search" placeholder="搜尋球員">
+        <select id="filter-pos">
+          <option value="">全部</option>
+          <option value="B">打者</option>
+          <option value="P">投手</option>
+          <option value="C">C</option><option value="1B">1B</option><option value="2B">2B</option>
+          <option value="3B">3B</option><option value="SS">SS</option><option value="OF">OF</option>
+          <option value="DH">DH</option><option value="SP">SP</option><option value="RP">RP</option>
+        </select>
+        <label class="inline"><input id="hide-taken" type="checkbox"> 隱藏已選走</label>
+      </div>
+      <div id="status" class="status" hidden></div>
+      <p class="muted small" id="board-meta"></p>
+      <ol id="board" class="board"></ol>
+    </section>
+
+    <section id="tab-pickup" hidden>
+      <div class="card">
+        <h2>季中撿人</h2>
+        <p class="muted">下一版：登入 Yahoo 後自動抓你的陣容、當週對手和自由球員，依「近況 × 你的隊形 × 對手近況」排推薦。</p>
+      </div>
+    </section>
+  </main>
+</body>
+</html>
