@@ -650,3 +650,8 @@ details[open] > summary::before { transform: rotate(45deg); }
 /* 休賽季藏起季中才用的東西（登入卡留著） */
 #tab-pickup.off #pk-wants-box, #tab-pickup.off #pk-mode, #tab-pickup.off #pk-side, #tab-pickup.off #pk-mode-desc, #tab-pickup.off #pk-list, #tab-pickup.off #pk-budget, #tab-pickup.off #pk-summary, #tab-pickup.off #pk-picked, #tab-pickup.off .two { display: none !important; }
 #tab-live.off #lv-status { display: none !important; }
+/* 選秀表：左邊編號靠左、靠上，跟內文拉開距離 */
+.row { grid-template-columns: 4.2em 1fr auto; gap: 16px; align-items: start; }
+.row .no { text-align: left; padding-top: 2px; }
+.row .no b { font-size: 1.35em; font-weight: 800; line-height: 1.1; color: var(--text); }
+.row .no span { display: block; margin-top: 4px; }
