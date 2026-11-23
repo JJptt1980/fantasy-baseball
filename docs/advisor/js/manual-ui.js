@@ -7,7 +7,7 @@ import { projections, withProjections, PRESEASON } from './projections.js';
 import { buildConfig } from './strategies.js';
 import { CAT_LABEL } from './pickup.js';
 import { haptic, toast, miniBars, sheet, closeSheet, icon, stars, checkPop, countUp } from './ui-kit.js';
-import { reasonOf, openPlayerCard, NICE } from './player-card.js';
+import { reasonOf, openPlayerCard, quickList, handleQuickList, NICE } from './player-card.js';
 import { statusOf } from './mylist.js';
 
 const $ = (s) => document.querySelector(s);
@@ -313,7 +313,7 @@ function renderDraft() {
     const row = (p, i) => `<div class="pick-row ${room.sel === p.id ? 'sel' : ''} ${statusOf(p.id) === 'no' ? 'ml-no' : ''}" data-sel="${p.id}" ${!myTurn && unconfIds.has(p.id) ? `data-confirm="${p.id}"` : ''} role="button" tabindex="0">
         <div class="pk-main"><b>${esc(p.name)}</b> <span class="pos">${esc(p.pos)}</span>${mlTag(p.id)} ${i != null ? nextTag(p) : ''}
           <div class="verdict lv${i != null ? p.verdict?.level ?? 0 : 0}">${esc(i != null ? p.verdict?.why ?? '' : reasonOf(p))}</div></div>
-        <button type="button" class="info" data-card="${p.id}" aria-label="看 ${esc(p.name)} 的詳細資料">ⓘ</button></div>`;
+        ${quickList(p.id, p.name)}<button type="button" class="info" data-card="${p.id}" aria-label="看 ${esc(p.name)} 的詳細資料">ⓘ</button></div>`;
     const recIds = new Set(opt.recommended.map((p) => p.id));
     const starred = opt.recommended.filter((p) => (p.verdict?.level ?? 0) > 0);
     // 別人還在選的時候：引擎已經選好的人先當作還在（等播到才消失）
@@ -544,6 +544,7 @@ export function initManual({ getSelection, getSeason, getProfiles }) {
   body.addEventListener('click', (e) => {
     // 模擬選秀：ⓘ＝詳情卡；點整列＝選他
     if (st.g?.phase === 'draft') {
+      if (handleQuickList(e)) return;
       const info = e.target.closest('[data-card]');
       if (info) {
         const recs = st.g.draftOptions().recommended;

@@ -49,12 +49,12 @@ public class Feedback {
         } catch (Exception ignored) { }
     }
 
-    /** kind：now＝輪到你、soon＝快輪到你、pick＝選到人；跟著手機的通知音量（靜音時不會響） */
+    /** kind：now＝輪到你、soon＝快輪到你、pick＝選到人；跟著手機的媒體音量（通知靜音、勿擾模式時也會響；媒體音量調到 0 才不響） */
     @JavascriptInterface
     public void beep(String kind) {
         main.post(() -> {
             try {
-                if (tone == null) tone = new ToneGenerator(AudioManager.STREAM_NOTIFICATION, 90);
+                if (tone == null) tone = new ToneGenerator(AudioManager.STREAM_MUSIC, 100);
                 switch (kind) {
                     case "now":
                         tone.startTone(ToneGenerator.TONE_PROP_BEEP2, 500);

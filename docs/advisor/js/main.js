@@ -10,7 +10,7 @@ import * as PACK from './pack.js';
 import { initLive } from './live-ui.js';
 import { initDraftSync } from './draft-sync-ui.js';
 import { haptic, sound, fxSetting, toast, pullToRefresh, skeleton, sheet, closeSheet, icon } from './ui-kit.js';
-import { reasonOf, openPlayerCard, statLine as cardStatLine } from './player-card.js';
+import { reasonOf, openPlayerCard, quickList, handleQuickList, statLine as cardStatLine } from './player-card.js';
 import { getList } from './mylist.js';
 import { isOffseason, nextOpening, daysUntil, refreshOpening } from './season.js';
 
@@ -113,17 +113,17 @@ function renderBoard() {
     rows.push(`<li class="row ${mark || ''} ${mk === 'no' ? 'ml-no' : ''}" data-id="${p.id}">
       <div class="no"><b>${p.rank}</b><span>市場 ${p.marketRank}</span></div>
       <div class="row-m">
-        <div class="name">${mk ? `<i class="ml-dot ${mk}" aria-label="${mk === 'prio' ? '優先' : '不要'}"></i>` : ''}${esc(p.name)}<span class="pos">${esc(p.pos)}</span></div>
+        <div class="name">${esc(p.name)}<span class="pos">${esc(p.pos)}</span></div>
         <div class="why1">${esc(reasonOf(p))}</div>
         <div class="line one">${esc(p.team)}・${p.age} 歲｜${esc(statLine(p))}</div>
-      </div></li>`);
+      </div>${quickList(p.id, p.name)}</li>`);
   }
   $('#board').innerHTML = rows.join('') || '<li class="muted">沒有符合的球員</li>';
   const at = lastFetched(state.season);
   const atTxt = at ? `｜MLB 數據 ${new Date(at).toLocaleDateString('zh-TW', { month: 'numeric', day: 'numeric' })} 抓的（${state.season} 季已結束就不再抓；季中一天最多抓一次）` : '';
   // 說明看過一次（點過球員）就收起來
   $('#board-meta').hidden = lsGet('adv.boardTipSeen', false);
-  $('#board-meta').innerHTML = '點球員：看詳細、左右滑換人、加入優先 <i class="ml-dot prio"></i>／不要 <i class="ml-dot no"></i>｜「市場」＝別人大概第幾個選他';
+  $('#board-meta').innerHTML = '點球員看詳細（左右滑換人）｜右邊 ⭐＝優先想要、🚫＝不要｜「市場」＝別人大概第幾個選他';
   $('#board-src').textContent = `排名根據：${state.dataNote ?? `${state.season} 季成績`}｜「市」來源：${state.marketLabel ?? '自己估計'}${state.adpNote ? `｜${state.adpNote}` : ''}${atTxt}`;
 }
 
@@ -253,6 +253,7 @@ function bind() {
 
 
   $('#board').addEventListener('click', (e) => {
+    if (handleQuickList(e)) return;
     const row = e.target.closest('.row');
     if (!row) return;
     if (!lsGet('adv.boardTipSeen', false)) { lsSet('adv.boardTipSeen', true); $('#board-meta').hidden = true; }

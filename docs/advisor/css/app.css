@@ -655,3 +655,13 @@ details[open] > summary::before { transform: rotate(45deg); }
 .row .no { text-align: left; padding-top: 2px; }
 .row .no b { font-size: 1.35em; font-weight: 800; line-height: 1.1; color: var(--text); }
 .row .no span { display: block; margin-top: 4px; }
+/* 列表上直接按的 ⭐ 優先／🚫 不要 */
+.ml-q { display: flex; gap: 2px; align-self: center; }
+.mlq { width: 40px; height: 44px; border: 0; border-radius: 12px; background: transparent; color: var(--muted); display: grid; place-items: center; padding: 0; }
+.mlq .ic { width: 22px; height: 22px; }
+.mlq:active { background: var(--surface-2); }
+.mlq.prio.on { color: var(--warn, #e8a400); }
+.mlq.no.on { color: var(--bad, #e5484d); background: color-mix(in srgb, var(--bad, #e5484d) 14%, transparent); }
+.pick-row { grid-template-columns: 1fr auto 44px; }
+.row.ml-no, .pick-row.ml-no { opacity: 1; }
+.row.ml-no .row-m, .row.ml-no .no, .pick-row.ml-no .pk-main { opacity: .45; }

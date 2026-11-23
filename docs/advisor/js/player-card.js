@@ -75,6 +75,26 @@ export function bindListButtons(root) {
   });
 }
 
+// 列表上直接按的小按鈕（選秀表、模擬選秀每一列都有）：⭐ 優先、🚫 不要；再按一次拿掉
+export function quickList(id, name = '') {
+  const st = statusOf(id);
+  return `<div class="ml-q" data-ml-id="${esc(id)}">
+    <button type="button" class="mlq prio ${st === 'prio' ? 'on' : ''}" data-mlq="prio" aria-pressed="${st === 'prio'}" aria-label="${esc(name)} 加入優先">${icon('star', { fill: st === 'prio' })}</button>
+    <button type="button" class="mlq no ${st === 'no' ? 'on' : ''}" data-mlq="no" aria-pressed="${st === 'no'}" aria-label="${esc(name)} 加入不要">${icon('ban')}</button></div>`;
+}
+// 點到小按鈕就處理並回傳 true（呼叫的地方就不要再當成點整列）
+export function handleQuickList(e) {
+  const b = e.target.closest('[data-mlq]');
+  if (!b) return false;
+  e.stopPropagation();
+  const id = b.closest('[data-ml-id]').dataset.mlId;
+  const kind = statusOf(id) === b.dataset.mlq ? null : b.dataset.mlq;
+  haptic('mark');
+  setStatus(id, kind);
+  toast(kind === 'prio' ? '已加入優先：推薦會往前排' : kind === 'no' ? '已加入不要：不會再推薦' : '已從名單拿掉', { ms: 2000 });
+  return true;
+}
+
 const SRC_TXT = { 預測: '明年預測 60%＋去年實際 40%', Marcel: 'Marcel 推估（官方沒有預測）' };
 // 一頁看完：數字一行、長條兩欄、走勢小圖
 function cardHtml(p, { season, lead, extra = '', actions = [], list = true, nav }) {
