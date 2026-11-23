@@ -590,3 +590,29 @@ details[open] > *:not(summary) { animation: pageIn .22s var(--ease); }
 
 /* hidden 一律藏起來（不被 display 蓋掉） */
 [hidden] { display: none !important; }
+
+/* 球員卡：一頁看完 */
+.pc .sh-head { margin-bottom: 8px; }
+.pc-k { display: flex; flex-wrap: wrap; gap: 6px 14px; font-size: var(--fs-sub); color: var(--muted); }
+.pc-k b { color: var(--text); font-size: 1.15em; font-variant-numeric: tabular-nums; }
+.pc .ml-btns { margin-top: 10px; }
+.pc .ml-b { min-height: 40px; }
+.pc-lead { margin: 10px 0 4px; font-weight: 600; line-height: 1.35; }
+.pc .sumline { font-size: var(--fs-sub); }
+.pc-h { margin: 10px 0 4px; font-size: var(--fs-caption); font-weight: 600; color: var(--muted); }
+.pc-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 6px 14px; }
+.pc-c { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
+.pc-cl { display: flex; justify-content: space-between; gap: 4px; font-size: var(--fs-caption); white-space: nowrap; }
+.pc-cl span { color: var(--muted); overflow: hidden; text-overflow: ellipsis; }
+.pc-cl b { font-variant-numeric: tabular-nums; font-weight: 600; }
+.pc-cl b.good { color: var(--good); }
+.pc-cl b.bad { color: var(--bad); }
+.pc .mb-t { height: 5px; display: block; }
+.pc .trend .spark { margin: 0; height: 34px; }
+.pc-stat { margin-top: 6px; font-size: var(--fs-caption); color: var(--muted); line-height: 1.35; }
+.pc .sh-acts { margin-top: 10px; }
+.pc.in-r { animation: pcInR .22s var(--ease); }
+.pc.in-l { animation: pcInL .22s var(--ease); }
+@keyframes pcInR { from { opacity: 0; transform: translateX(40px); } to { opacity: 1; transform: none; } }
+@keyframes pcInL { from { opacity: 0; transform: translateX(-40px); } to { opacity: 1; transform: none; } }
+@media (prefers-reduced-motion: reduce) { .pc.in-r, .pc.in-l { animation: none; } }

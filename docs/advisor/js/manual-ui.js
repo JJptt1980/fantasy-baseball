@@ -541,9 +541,13 @@ export function initManual({ getSelection, getSeason, getProfiles }) {
     if (st.g?.phase === 'draft') {
       const info = e.target.closest('[data-card]');
       if (info) {
-        const id = Number(info.dataset.card);
-        const p = st.g.draftOptions().recommended.find((x) => x.id === id) ?? st.g.avail.get(id);
-        if (p) openPlayerCard(p, { season: st.prep.season - 1, lead: p.recReasons ? recSentence(p) : undefined, actions: revealing() ? [] : [{ label: `選 ${p.name}`, primary: true, run: () => draftWithUndo(() => st.g.draftPick(id), p.name) }] });
+        const recs = st.g.draftOptions().recommended;
+        const find = (id) => recs.find((x) => x.id === id) ?? st.g.avail.get(id);
+        const optsOf = (p) => ({ season: st.prep.season - 1, lead: p.recReasons ? recSentence(p) : undefined, actions: revealing() ? [] : [{ label: `選 ${p.name}`, primary: true, run: () => draftWithUndo(() => st.g.draftPick(p.id), p.name) }] });
+        // 左右滑：照畫面上的順序看上一位／下一位
+        const ids = [...new Set([...body.querySelectorAll('[data-card]')].map((x) => Number(x.dataset.card)))];
+        const p = find(Number(info.dataset.card));
+        if (p) openPlayerCard(p, { ...optsOf(p), nav: (cur, dir) => { const np = find(ids[ids.indexOf(cur.id) + dir]); return np ? { p: np, opts: optsOf(np) } : null; } });
         return;
       }
       const cf = e.target.closest('[data-confirm]');

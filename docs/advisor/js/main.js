@@ -178,14 +178,22 @@ function openSources() {
   });
 }
 
-// ── 球員詳情卡 ──
+// ── 球員詳情卡（左右滑看選秀表上一位／下一位） ──
+function cardOpts(p) {
+  const av = state.adp?.get(`${p.side}${p.id}`);
+  return { season: state.season, extra: av ? `<div class="sumline">各家順位：${esc(ADP.adpLine(av))}</div>` : '' };
+}
 function openPlayer(id) {
   const p = state.ranked.find((x) => String(x.id) === String(id));
   if (!p) return;
-  const av = state.adp?.get(`${p.side}${p.id}`);
+  const ids = [...document.querySelectorAll('#board .row')].map((r) => r.dataset.id);
   openPlayerCard(p, {
-    season: state.season,
-    extra: av ? `<div class="sumline">各家順位：${esc(ADP.adpLine(av))}</div>` : '',
+    ...cardOpts(p),
+    nav: (cur, dir) => {
+      const nid = ids[ids.indexOf(String(cur.id)) + dir];
+      const np = nid != null ? state.ranked.find((x) => String(x.id) === nid) : null;
+      return np ? { p: np, opts: cardOpts(np) } : null;
+    },
   });
 }
 

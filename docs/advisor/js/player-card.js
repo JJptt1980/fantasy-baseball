@@ -1,5 +1,5 @@
 // 球員一句話理由＋底部詳情卡（選秀表、Demo 選秀共用）
-import { esc, haptic, sheet, closeSheet, sparkline, miniBars, zPct, icon, toast } from './ui-kit.js';
+import { esc, haptic, sheet, closeSheet, sparkline, zPct, icon, toast } from './ui-kit.js';
 import { statusOf, setStatus } from './mylist.js';
 
 export const NICE = {
@@ -61,7 +61,7 @@ export function listButtons(id) {
     <button type="button" class="ml-b ${st === 'prio' ? 'on prio' : ''}" data-ml="prio" aria-pressed="${st === 'prio'}">${icon('star', { fill: st === 'prio' })}${st === 'prio' ? '在優先名單' : '加入優先'}</button>
     <button type="button" class="ml-b ${st === 'no' ? 'on no' : ''}" data-ml="no" aria-pressed="${st === 'no'}">${icon('ban')}${st === 'no' ? '在不要名單' : '加入不要'}</button></div>`;
 }
-export function bindListButtons(root, name) {
+export function bindListButtons(root) {
   root.addEventListener('click', (e) => {
     const b = e.target.closest('[data-ml]');
     if (!b) return;
@@ -75,37 +75,75 @@ export function bindListButtons(root, name) {
   });
 }
 
-export function openPlayerCard(p, { season, lead, extra = '', actions = [], list = true } = {}) {
-  haptic('tap');
-  const bars = miniBars(Object.entries(p.z ?? {}).map(([c, z]) => {
+const SRC_TXT = { 預測: '明年預測 60%＋去年實際 40%', Marcel: 'Marcel 推估（官方沒有預測）' };
+// 一頁看完：數字一行、長條兩欄、走勢小圖
+function cardHtml(p, { season, lead, extra = '', actions = [], list = true, nav }) {
+  const cells = Object.entries(p.z ?? {}).map(([c, z]) => {
     const pct = zPct(z);
-    return { label: NICE[c], pct, text: `前 ${topPct(z)}%`, cls: pct >= 0.8 ? 'good' : pct <= 0.3 ? 'bad' : '' };
-  }));
-  const box = sheet(`
-    <div class="sh-head"><div><div class="sh-name">${esc(p.name)}<span class="pos">${esc(p.pos)}</span></div><div class="muted small">${esc(p.team)}・${p.age} 歲</div></div><button type="button" class="sh-x" data-close aria-label="關閉">✕</button></div>
-    <div class="kpis"><div><b>${p.rank}</b><span>選秀表</span></div><div><b>${p.round}</b><span>建議輪次</span></div><div><b>${p.marketRank}</b><span>市場排名</span></div></div>
+    const cls = pct >= 0.8 ? 'good' : pct <= 0.3 ? 'bad' : '';
+    return `<div class="pc-c"><div class="pc-cl"><span>${esc(NICE[c])}</span><b class="${cls}">前 ${topPct(z)}%</b></div><span class="mb-t"><i class="${cls}" style="width:${Math.round(Math.max(0.03, Math.min(1, pct)) * 100)}%"></i></span></div>`;
+  }).join('');
+  return `
+    <div class="sh-head"><div><div class="sh-name">${esc(p.name)}<span class="pos">${esc(p.pos)}</span></div><div class="muted small">${esc(p.team)}・${p.age} 歲${nav ? '｜左右滑：上一位／下一位' : ''}</div></div><button type="button" class="sh-x" data-close aria-label="關閉">✕</button></div>
+    <div class="pc-k"><span>選秀表 <b>${p.rank}</b></span><span>建議第 <b>${p.round}</b> 輪</span><span>市場 <b>${p.marketRank}</b></span></div>
     ${list ? listButtons(p.id) : ''}
-    <p class="why1 lead">${esc(lead ?? reasonOf(p))}</p>${extra}
-    <h3>各類別在聯盟的位置${season ? `（${season} 季）` : ''}</h3>${bars}
-    <h3 id="sh-trend-t">${season ?? ''} 逐週走勢</h3><div id="sh-trend" class="muted small">讀取中…</div>
-    <div class="line small muted" style="margin-top:10px">${esc(statLine(p))}${p.projSrc ? `<br>數字來源：${esc(p.projSrc === '預測' ? '明年預測 60%＋去年實際 40%' : p.projSrc === 'Marcel' ? 'Marcel 推估（官方沒有預測）' : '官方預測（去年沒在大聯盟）')}` : ''}</div>
+    <p class="pc-lead">${esc(lead ?? reasonOf(p))}</p>${extra}
+    <div class="pc-h">各類別在聯盟的位置${season ? `（${season} 季）` : ''}</div><div class="pc-grid">${cells}</div>
+    <div class="pc-h" id="sh-trend-t">${season ?? ''} 逐週走勢</div><div id="sh-trend" class="muted small">${season ? '讀取中…' : '沒有逐週資料'}</div>
+    <div class="pc-stat">${esc(statLine(p))}${p.projSrc ? `｜${esc(SRC_TXT[p.projSrc] ?? '官方預測（去年沒在大聯盟）')}` : ''}</div>
     ${p.notes?.length ? `<div class="note">${esc(p.notes.join('、'))}</div>` : ''}
-    ${actions.length ? `<div class="sh-acts">${actions.map((a, i) => `<button type="button" class="btn ${a.primary ? 'primary' : ''}" data-sh="${i}">${esc(a.label)}</button>`).join('')}</div>` : ''}`);
-  if (list) bindListButtons(box, p.name);
-  box.addEventListener('click', (e) => {
-    const i = e.target.closest('[data-sh]')?.dataset.sh;
-    if (i != null) { closeSheet(); actions[Number(i)].run(); }
-  });
-  if (!season) { document.getElementById('sh-trend').textContent = '沒有逐週資料'; return; }
+    ${actions.length ? `<div class="sh-acts">${actions.map((a, i) => `<button type="button" class="btn ${a.primary ? 'primary' : ''}" data-sh="${i}">${esc(a.label)}</button>`).join('')}</div>` : ''}`;
+}
+
+function loadTrend(p, season, isCur) {
+  if (!season) return;
   weeklyData(season).then((wk) => {
     const el = document.getElementById('sh-trend');
-    if (!el) return;
+    if (!el || !isCur()) return;
     const t = trendOf(p, wk);
     if (!t) { el.textContent = '沒有逐週資料'; return; }
     const got = t.vals.filter((v) => v != null);
     const avg = (a) => a.reduce((x, y) => x + y, 0) / (a.length || 1);
-    document.getElementById('sh-trend-t').textContent = `${season} ${t.label}`;
+    document.getElementById('sh-trend-t').textContent = `${season} ${t.label}｜全季 ${t.fmt(avg(got))}｜最後 4 週 ${t.fmt(avg(got.slice(-4)))}`;
     el.className = 'trend';
-    el.innerHTML = `${sparkline(t.vals, { w: 240, h: 44, label: t.label })}<div class="muted small">全季平均 ${t.fmt(avg(got))}｜最後 4 週 ${t.fmt(avg(got.slice(-4)))}</div>`;
+    el.innerHTML = sparkline(t.vals, { w: 300, h: 34, label: t.label });
+  });
+}
+
+// nav(p, dir)：dir＝1 下一位、-1 上一位；回傳 { p, opts } 或 null（到頭了）
+export function openPlayerCard(p, opts = {}) {
+  haptic('tap');
+  const box = sheet('<div class="pc"></div>');
+  const host = box.querySelector('.pc');
+  let cur = null;
+  const fill = (c, dir = 0) => {
+    cur = c;
+    host.innerHTML = cardHtml(c.p, { ...c.opts, nav: opts.nav });
+    if (dir) { host.classList.remove('in-l', 'in-r'); void host.offsetWidth; host.classList.add(dir > 0 ? 'in-r' : 'in-l'); }
+    box.scrollTop = 0;
+    const me = c;
+    loadTrend(c.p, c.opts.season, () => cur === me);
+  };
+  fill({ p, opts });
+  bindListButtons(box);
+  box.addEventListener('click', (e) => {
+    const i = e.target.closest('[data-sh]')?.dataset.sh;
+    if (i != null) { closeSheet(); cur.opts.actions[Number(i)].run(); }
+  });
+  if (!opts.nav) return;
+  // 左右滑：上一位／下一位（橫向移動要明顯大於上下，才不會跟往下拉關閉打架）
+  let x0 = null, y0 = 0;
+  box.addEventListener('touchstart', (e) => { x0 = e.touches[0].clientX; y0 = e.touches[0].clientY; }, { passive: true });
+  box.addEventListener('touchend', (e) => {
+    if (x0 == null) return;
+    const dx = e.changedTouches[0].clientX - x0;
+    const dy = e.changedTouches[0].clientY - y0;
+    x0 = null;
+    if (Math.abs(dx) < 60 || Math.abs(dx) < Math.abs(dy) * 1.5) return;
+    const dir = dx < 0 ? 1 : -1;
+    const n = opts.nav(cur.p, dir);
+    if (!n) { haptic('warn'); toast(dir > 0 ? '已經是最後一位' : '已經是第一位', { ms: 1500 }); return; }
+    haptic('tap');
+    fill(n, dir);
   });
 }
