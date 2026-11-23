@@ -2,8 +2,8 @@
 import * as Y from './yahoo-source.js';
 import { seasonStats, toMaps } from './mlb.js';
 import { CAT_LABEL } from './pickup.js';
-import { track, resolveRoster, gameStatus, addDays } from './live.js';
-import { haptic, icon } from './ui-kit.js';
+import { track, resolveRoster, gameStatus } from './live.js';
+import { haptic } from './ui-kit.js';
 const LOWER = new Set(['B:K', 'P:L', 'P:BB', 'P:ERA', 'P:WHIP']);
 // 我方占比（0~1）：越小越好的類別反過來算；都沒有數字就算 0.5
 function share(cat, me, opp) {
@@ -16,7 +16,7 @@ const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '
 const WD = ['日', '一', '二', '三', '四', '五', '六'];
 const wd = (d) => WD[new Date(`${d}T12:00:00Z`).getUTCDay()];
 
-const st = { mode: 'live', weekly: null, week: 20, day: null, timer: null, playTimer: null, busy: false, maps: null, league: null, getBoard: null };
+const st = { timer: null, busy: false, maps: null, league: null, getBoard: null };
 
 function status(msg, kind = '') {
   const el = $('#lv-status');
@@ -81,24 +81,11 @@ async function refresh() {
   if (st.busy) return;
   st.busy = true;
   try {
-    let now;
-    let week;
-    let weekNo;
-    let past;
-    if (st.mode === 'replay') {
-      const w = st.weekly.weeks[st.week - 1];
-      week = { start: w.start, end: w.end };
-      now = st.day ?? w.start;
-      weekNo = st.week;
-      past = true;
-    } else {
-      now = new Date().toISOString().slice(0, 10);
-      past = false;
-    }
+    const now = new Date().toISOString().slice(0, 10);
+    const past = false;
     status('讀取陣容…');
-    const today = new Date().toISOString().slice(0, 10);
-    const r = await rosters(weekNo, Number(now.slice(0, 4)), today);
-    week ??= r.week;
+    const r = await rosters(undefined, Number(now.slice(0, 4)), now);
+    const week = r.week;
     if (!r.rosterAt) { status('這週沒有對手（輪空，或季後賽已經結束）。', 'warn'); return clear(); }
     if (!week?.start || now > week.end || now < week.start) {
       status('休賽季中，沒有比賽。開季後這裡會顯示這週 18 類誰贏誰輸、今天誰有比賽。', 'warn');
@@ -131,7 +118,7 @@ function render(res, ctx) {
   $('#lv-head').innerHTML = `
     <div class="sumline">第 ${ctx.weekNo ?? '-'} 週｜對手 <b>${esc(ctx.oppName)}</b></div>
     <div class="sumline muted small">${esc(ctx.now)}（週${wd(ctx.now)}）｜本週 ${esc(ctx.week.start.slice(5))}～${esc(ctx.week.end.slice(5))}｜還剩 ${res.daysLeft} 天
-      ${st.mode === 'live' ? `｜更新 ${String(t.getHours()).padStart(2, '0')}:${String(t.getMinutes()).padStart(2, '0')}${res.live ? '（比賽進行中，每 60 秒自動更新）' : ''}` : '｜重播'}</div>
+      ${`｜更新 ${String(t.getHours()).padStart(2, '0')}:${String(t.getMinutes()).padStart(2, '0')}${res.live ? '（比賽進行中，每 60 秒自動更新）' : ''}`}</div>
     <div class="score">
       <div><div class="n ${cls(n.win ?? 0, n.loss ?? 0)}">${n.win ?? 0}-${n.loss ?? 0}-${n.tie ?? 0}</div><div class="l">目前</div></div>
       <div><div class="n ${cls(p.win, p.loss)}">${p.win}-${p.loss}-${p.tie}</div><div class="l">預估週末</div></div>
@@ -169,66 +156,18 @@ function render(res, ctx) {
 
 function scheduleAuto(res) {
   clearTimeout(st.timer);
-  if (st.mode !== 'live' || !res.live) return;
+  if (!res.live) return;
   st.timer = setTimeout(() => { if (!$('#tab-live').hidden && document.visibilityState === 'visible') refresh(); else scheduleAuto(res); }, 60000);
 }
 
-// ── 重播控制 ──
-function renderDays() {
-  const w = st.weekly.weeks[st.week - 1];
-  const days = [];
-  for (let d = w.start; d <= w.end; d = addDays(d, 1)) days.push(d);
-  st.day = days.includes(st.day) ? st.day : days[0];
-  $('#lv-days').innerHTML = days.map((d) => `<button type="button" class="chip ${d === st.day ? 'on' : ''}" data-day="${d}">${d.slice(5)} ${wd(d)}</button>`).join('');
-}
-
-function stopPlay() {
-  clearTimeout(st.playTimer);
-  st.playTimer = null;
-  $('#lv-play').innerHTML = `${icon('play', { fill: true })} 播放這一週`;
-}
-
-async function playWeek() {
-  if (st.playTimer) return stopPlay();
-  const w = st.weekly.weeks[st.week - 1];
-  st.day = w.start;
-  $('#lv-play').innerHTML = `${icon('pause')} 停止`;
-  const step = async () => {
-    renderDays();
-    await refresh();
-    if (st.day >= w.end) return stopPlay();
-    st.day = addDays(st.day, 1);
-    st.playTimer = setTimeout(step, Number($('#lv-speed').value));
-  };
-  st.playTimer = setTimeout(step, 0);
-}
-
-function setMode(m) {
-  st.mode = m;
-  stopPlay();
+function start() {
   clearTimeout(st.timer);
-  document.querySelectorAll('#lv-mode button').forEach((b) => b.classList.toggle('on', b.dataset.mode === m));
-  $('#lv-replay').hidden = m !== 'replay';
-  if (m === 'replay') renderDays();
   refresh();
 }
 
-export function initLive({ getBoard, weeklyUrl }) {
+export function initLive({ getBoard }) {
   st.getBoard = getBoard;
   let loaded = false;
-  const ensure = async () => {
-    if (loaded) return;
-    loaded = true;
-    try {
-      st.weekly = await (await fetch(weeklyUrl)).json();
-      $('#lv-week').innerHTML = st.weekly.weeks.map((w, i) => `<option value="${i + 1}">第 ${i + 1} 週 ${w.start.slice(5).replace('-', '/')}</option>`).join('');
-      $('#lv-week').value = String(st.week);
-    } catch { $('#lv-mode [data-mode=replay]').disabled = true; }
-    setMode('live'); // 只看本週（重播 2026 已拿掉）
-  };
-  $('#lv-mode').addEventListener('click', (e) => { const m = e.target.closest('button')?.dataset.mode; if (m) setMode(m); });
-  $('#lv-week').addEventListener('change', (e) => { st.week = Number(e.target.value); st.day = null; stopPlay(); renderDays(); refresh(); });
-  $('#lv-days').addEventListener('click', (e) => { const d = e.target.closest('.chip')?.dataset.day; if (d) { stopPlay(); st.day = d; renderDays(); refresh(); } });
-  $('#lv-play').addEventListener('click', playWeek);
+  const ensure = () => { if (loaded) return; loaded = true; start(); };
   return { onShow: ensure, refresh: () => refresh() };
 }

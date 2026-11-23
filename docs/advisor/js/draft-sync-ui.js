@@ -1,12 +1,12 @@
 // 選秀頁「🔄 選秀即時同步」：自動標我選／被選、還差幾順位、前 3 推薦、預測下一輪、快輪到時震動
 import * as Y from './yahoo-source.js';
-import { yahooSource, replaySource, nextDelay, RateLimited } from './draft-source.js';
+import { yahooSource, nextDelay, RateLimited } from './draft-source.js';
 import { haptic, toast, icon, stars } from './ui-kit.js';
 import { draftState, recommend, predictAvailable, openSlots, TEAMS, ROUNDS } from './draft-sync.js';
 
 const $ = (s) => document.querySelector(s);
 const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
-const LS = { slot: 'ds.slot', mode: 'ds.mode', speed: 'ds.speed' };
+const LS = { slot: 'ds.slot' };
 function lsGet(k, d) { try { const v = localStorage.getItem(k); return v == null ? d : JSON.parse(v); } catch { return d; } }
 function lsSet(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch { /* 略 */ } }
 
@@ -31,32 +31,14 @@ async function latestLeague() {
   return ls.find((l) => l.season === latest);
 }
 
-// 練習用：App 內讀聯盟最近一年的真實選秀；電腦瀏覽器沒有 Yahoo → 用選秀表模擬 11 隊照市場排名選
-function fakeDraft(board) {
-  const avail = [...board].sort((a, b) => a.marketRank - b.marketRank);
-  const picks = [];
-  const taken = new Set();
-  for (let o = 1; o <= TEAMS * ROUNDS; o++) {
-    const round = Math.ceil(o / TEAMS);
-    const k = (o - 1) % TEAMS;
-    const slot = round % 2 ? k + 1 : TEAMS - k;
-    const p = avail.find((x) => !taken.has(x.id) && (slot === 6 ? true : true));
-    taken.add(p.id);
-    picks.push({ overall: o, round, pick: k + 1, name: p.side === 'P' && board.some((x) => x.id === p.id && x.side === 'B') ? `${p.name} (Pitcher)` : p.name, team: slot === 6 ? '示範：我的隊' : `示範隊 ${slot}` });
-  }
-  return picks;
-}
-
 async function start() {
-  const mode = $('#ds-mode').value;
-  lsSet(LS.mode, mode);
   stop();
   st.errors = 0;
   st.buzzed.clear();
   st.practiceLog = [];
   st.recBefore = null;
   try {
-    if (mode === 'yahoo') {
+    {
       if (!Y.hasBridge()) throw new Error('即時同步要在 Android App 裡用（需要登入 Yahoo）');
       status('讀取 Yahoo 聯盟…');
       st.league = await latestLeague();
@@ -65,23 +47,6 @@ async function start() {
       // 正式選秀：先清掉以前留下的我選／被選，之後照 Yahoo 的選秀結果重新標
       const n = Object.keys(st.getMarks() ?? {}).length;
       if (n) { st.setMarks({}); toast(`已清掉舊的我選／被選（${n} 個）`); }
-    } else {
-      const speed = Number($('#ds-speed').value);
-      lsSet(LS.speed, speed);
-      let picks;
-      if (Y.hasBridge()) {
-        status('讀取聯盟最近一年的真實選秀結果（練習用）…');
-        st.league = await latestLeague();
-        st.myTeam = st.league.teamName;
-        picks = await Y.draftResults(st.league);
-        if (!picks.length) throw new Error('讀不到選秀結果');
-      } else {
-        picks = fakeDraft(st.getBoard());
-        st.myTeam = '示範：我的隊';
-      }
-      st.source = replaySource(picks, { secondsPerPick: speed });
-      // 練習不能弄髒正式的選秀表：先存下原本的標記，停止時還原
-      st.setMarks({}); // 練習從乾淨的選秀表開始
     }
     st.running = true;
     renderButtons();
@@ -123,7 +88,7 @@ async function tick() {
     rateLimited = e instanceof RateLimited;
     status(rateLimited ? e.message : `讀取失敗（第 ${st.errors} 次）：${e.message}，稍後自動重試`, 'error');
   }
-  const delay = nextDelay({ picksUntil, errors: st.errors, rateLimited, replay: st.source?.kind === 'replay' });
+  const delay = nextDelay({ picksUntil, errors: st.errors, rateLimited });
   st.nextAt = Date.now() + delay;
   if (st.running) st.timer = setTimeout(tick, delay);
   renderMeta();
@@ -254,8 +219,6 @@ function renderButtons() {
   $('#ds-other').hidden = !st.running;
   $('#ds-start').hidden = st.running;
   $('#ds-stop').hidden = !st.running;
-  $('#ds-pause').hidden = !(st.running && st.source?.kind === 'replay');
-  if (st.source?.kind === 'replay') $('#ds-pause').innerHTML = st.source.paused ? `${icon('play', { fill: true })} 繼續` : `${icon('pause')} 暫停`;
 }
 
 function renderMeta() {
@@ -295,7 +258,6 @@ function render() {
 
   panel.innerHTML = `${banner}
     ${s.done ? '' : `<button type="button" class="btn" id="ds-focus-open">${icon('expand')} 放大模式（只看最重要的）</button>`}
-    ${st.source?.kind === 'replay' ? '<div class="muted small">練習中：選秀表上被劃掉的人，按「停止」就會恢復。</div>' : ''}
     <div class="sumline muted small">第 ${curRound} 輪｜你第 ${s.slot ?? '?'} 個選｜你已經選了 ${s.mine.length} 人</div>
     <div class="sumline">${open.length ? `還缺：<b>${esc(missing)}</b>` : '上場位置都有人了'}${s.mine.length ? `<span class="muted small">｜${s.mine.map((p) => esc(p.name)).join('、')}</span>` : ''}</div>
     ${recHtml}${predHtml}${logHtml}
@@ -309,11 +271,6 @@ export function initDraftSync({ getBoard, applyMarks, getMarks, setMarks }) {
   st.setMarks = setMarks;
   $('#ds-slot').innerHTML = '<option value="">自動偵測</option>' + Array.from({ length: TEAMS }, (_, i) => `<option value="${i + 1}">第 ${i + 1} 順位</option>`).join('');
   $('#ds-slot').value = String(lsGet(LS.slot, ''));
-  $('#ds-mode').value = lsGet(LS.mode, 'replay');
-  $('#ds-speed').value = String(lsGet(LS.speed, 4));
-  const syncMode = () => { $('#ds-speed-wrap').hidden = $('#ds-mode').value !== 'replay'; };
-  syncMode();
-  $('#ds-mode').addEventListener('change', syncMode);
   $('#ds-slot').addEventListener('change', (e) => { lsSet(LS.slot, e.target.value); if (st.running) tick(); });
   $('#ds-start').addEventListener('click', start);
   $('#ds-q').addEventListener('input', renderOther);
@@ -322,10 +279,6 @@ export function initDraftSync({ getBoard, applyMarks, getMarks, setMarks }) {
     if (t) { markTaken(Number(t.dataset.taken)); $('#ds-q').value = ''; renderOther(); }
   });
   $('#ds-stop').addEventListener('click', stop);
-  $('#ds-pause').addEventListener('click', () => {
-    if (st.source?.paused) st.source.resume(); else st.source?.pause();
-    renderButtons();
-  });
   $('#ds-panel').addEventListener('click', (e) => {
     const t = e.target.closest('[data-taken]');
     if (t) return markTaken(Number(t.dataset.taken));

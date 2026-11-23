@@ -46,6 +46,7 @@ public class MainActivity extends Activity {
         web.addJavascriptInterface(new YahooBridge(this, web), "AndroidBridge");
         files = new FileBridge(this, web);
         web.addJavascriptInterface(files, "FileBridge");
+        web.addJavascriptInterface(new Feedback(this), "Feedback");
         android.webkit.CookieManager.getInstance().setAcceptCookie(true);
 
         web.setWebViewClient(new WebViewClient() {

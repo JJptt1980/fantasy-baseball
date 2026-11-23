@@ -2,6 +2,7 @@
 // 純計算，不碰畫面與網路；資料來源在 draft-source.js（可替換）
 import { normName } from './pickup.js';
 import { assign, fits } from './demo-sim.js';
+import { listSets } from './mylist.js';
 
 export const TEAMS = 12;
 export const ROUNDS = 25;
@@ -86,8 +87,12 @@ export function categoryNeeds(myPlayers, board) {
 }
 
 // 前 n 推薦（附理由）：選秀表順序為底，加上守位缺口與類別平衡
-export function recommend({ board, takenIds, myPlayers, picksUntil = 0, myPicksLeft = ROUNDS, n = 3 }) {
+// PRIO_BONUS：「優先名單」的人加的分（大約等於選秀表往前 1～2 輪）
+const PRIO_BONUS = 2;
+export function recommend({ board, takenIds, myPlayers, picksUntil = 0, myPicksLeft = ROUNDS, n = 3, list = listSets() }) {
+  // 「不要名單」的人永遠不推薦
   const avail = board.filter((p) => !takenIds.has(p.id));
+  const pool = avail.filter((p) => !list.no.has(String(p.id)));
   const open = openSlots(myPlayers);
   const need = categoryNeeds(myPlayers, board);
   // 剩下的選擇數 ≤ 先發空格數 → 只能選補得上空格的人
@@ -101,17 +106,19 @@ export function recommend({ board, takenIds, myPlayers, picksUntil = 0, myPicksL
     const supply = avail.slice(0, 150).filter((p) => fits(p, sl)).length;
     scarce[sl] = Math.min(2, (needN * 12) / Math.max(6, supply));
   }
-  const scored = avail.slice(0, 120).map((p) => {
+  const scored = pool.slice(0, 120).map((p) => {
     const fills = open.filter((sl) => fits(p, sl));
     const fillSlot = fills.sort((a, b) => (scarce[b] ?? 0) - (scarce[a] ?? 0))[0];
     const catBonus = Object.entries(p.z ?? {}).reduce((a, [c, z]) => a + Math.max(0, z) * (need[c] - 1), 0);
     const fillBonus = fillSlot ? 1.2 + 4 * urgency + (scarce[fillSlot] ?? 0) * (0.5 + 2 * urgency) : -1.5 - 4 * urgency;
-    const score = (p.value ?? 0) + 0.8 * catBonus + fillBonus;
-    return { p, fillSlot, catBonus, score };
+    const prio = list.prio.has(String(p.id));
+    const score = (p.value ?? 0) + 0.8 * catBonus + fillBonus + (prio ? PRIO_BONUS : 0);
+    return { p, fillSlot, catBonus, score, prio };
   }).filter((x) => !mustFill || x.fillSlot);
   scored.sort((a, b) => b.score - a.score);
   return scored.slice(0, n).map((x) => {
     const reasons = [];
+    if (x.prio) reasons.push('在你的優先名單');
     if (x.fillSlot) reasons.push(`補 ${x.fillSlot} 的空位`);
     else reasons.push('上場位置滿了，當替補');
     const helps = Object.entries(x.p.z ?? {}).filter(([c, z]) => z > 0.3 && need[c] > 1.15).sort((a, b) => b[1] * need[b[0]] - a[1] * need[a[0]]).slice(0, 2).map(([c]) => CAT_LABEL[c]);

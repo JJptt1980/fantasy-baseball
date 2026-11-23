@@ -6,6 +6,7 @@ import {
   weekStats, weekStatsReal, match, schedule, swap, aiMoves, newcomers, standings, pickupOptions, runSeason, holes, uniqueById,
 } from './demo-sim.js';
 import { recommend, predictAvailable, categoryNeeds } from './draft-sync.js';
+import { listSets } from './mylist.js';
 
 const BUDGET = 150;
 const IL_SLOTS = 2;
@@ -89,7 +90,8 @@ export function createGame(players, { mySlot, profiles, seed, weekly, draftOnly 
     let recs = recommend({ board: players, takenIds, myPlayers: mine, myPicksLeft: left, n: 5 });
     if (recs.length < 5) {
       const have = new Set(recs.map((x) => x.p.id));
-      recs = recs.concat(sorted.filter((p) => !have.has(p.id)).slice(0, 5 - recs.length).map((p) => ({ p, reasons: [] })));
+      const no = listSets().no;
+      recs = recs.concat(sorted.filter((p) => !have.has(p.id) && !no.has(String(p.id))).slice(0, 5 - recs.length).map((p) => ({ p, reasons: [] })));
     }
     const recommended = recs.map((x) => ({ ...x.p, recReasons: x.reasons, fillSlot: x.fillSlot ?? null, staysNext: stayIds ? stayIds.has(x.p.id) : null, recScore: x.score ?? null }));
     // 建議程度：最多 3 人（⭐⭐⭐ 最推薦／⭐⭐ 也很好／⭐ 可以考慮），其他 ✋ 不建議；順序照分數排（模擬起來最強）

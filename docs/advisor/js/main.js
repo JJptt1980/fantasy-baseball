@@ -9,8 +9,9 @@ import { initDemo, reloadProfiles } from './demo-ui.js';
 import * as PACK from './pack.js';
 import { initLive } from './live-ui.js';
 import { initDraftSync } from './draft-sync-ui.js';
-import { haptic, toast, pullToRefresh, skeleton, sheet, closeSheet, icon } from './ui-kit.js';
+import { haptic, sound, fxSetting, toast, pullToRefresh, skeleton, sheet, closeSheet, icon } from './ui-kit.js';
 import { reasonOf, openPlayerCard, statLine as cardStatLine } from './player-card.js';
+import { getList } from './mylist.js';
 
 const $ = (s) => document.querySelector(s);
 const LS = { strat: 'adv.strategies', prefs: 'adv.prefs', notes: 'adv.notes', marks: 'adv.marks', tab: 'adv.tab' };
@@ -85,7 +86,6 @@ function recompute() {
   if (!state.players) return;
   state.ranked = board(state.players, { ...buildConfig(state.selected, state.prefs), market: state.market });
   renderBoard();
-  if (!$('#tab-today').hidden) renderToday();
 }
 
 function renderBoard() {
@@ -94,20 +94,25 @@ function renderBoard() {
   const rows = [];
   let lastRound = 0;
   let shown = 0;
+  const ml = getList();
+  const mlOf = (id) => (ml.prio.includes(String(id)) ? 'prio' : ml.no.includes(String(id)) ? 'no' : null);
+  const onlyList = $('#filter-pos').value === 'ML';
   for (const p of state.ranked) {
     if (shown >= 400) break;
     const mark = state.marks[p.id];
+    const mk = mlOf(p.id);
+    if (onlyList && !mk) continue;
     if (q && !p.name.toLowerCase().includes(q)) continue;
-    if (pos && !(pos === p.side || pos === p.pos)) continue;
+    if (pos && !onlyList && !(pos === p.side || pos === p.pos)) continue;
     if (!q && !pos && p.round !== lastRound) {
       rows.push(`<li class="round-sep">第 ${p.round} 輪</li>`);
       lastRound = p.round;
     }
     shown++;
-    rows.push(`<li class="row ${mark || ''}" data-id="${p.id}">
+    rows.push(`<li class="row ${mark || ''} ${mk === 'no' ? 'ml-no' : ''}" data-id="${p.id}">
       <div class="no"><b>${p.rank}</b><span>市 ${p.marketRank}</span></div>
       <div>
-        <div class="name">${esc(p.name)}<span class="pos">${esc(p.pos)}</span></div>
+        <div class="name">${esc(p.name)}<span class="pos">${esc(p.pos)}</span>${mk === 'prio' ? `<span class="ml-tag prio">${icon('star', { fill: true })}優先</span>` : mk === 'no' ? `<span class="ml-tag no">${icon('ban')}不要</span>` : ''}</div>
         <div class="line">${esc(p.team)}・${p.age} 歲｜${esc(statLine(p))}</div>
         <div class="why1">${esc(reasonOf(p))}</div>${state.adp?.get(`${p.side}${p.id}`) ? `<div class="line">${esc(ADP.adpLine(state.adp.get(`${p.side}${p.id}`)))}</div>` : ''}
       </div></li>`);
@@ -115,7 +120,7 @@ function renderBoard() {
   $('#board').innerHTML = rows.join('') || '<li class="muted">沒有符合的球員</li>';
   const at = lastFetched(state.season);
   const atTxt = at ? `｜MLB 數據 ${new Date(at).toLocaleDateString('zh-TW', { month: 'numeric', day: 'numeric' })} 抓的（${state.season} 季已結束就不再抓；季中一天最多抓一次）` : '';
-  $('#board-meta').textContent = '點一下球員看詳細｜「市」＝別人大概第幾個選他｜選秀那天用上面的「選秀即時同步」，被選走的人會自動劃掉';
+  $('#board-meta').textContent = '點一下球員：看詳細、加入「優先」或「不要」名單｜「市」＝別人大概第幾個選他';
   $('#board-src').textContent = `排名根據：${state.dataNote ?? `${state.season} 季成績`}｜「市」來源：${state.marketLabel ?? '自己估計'}${state.adpNote ? `｜${state.adpNote}` : ''}${atTxt}`;
 }
 
@@ -195,8 +200,15 @@ function bind() {
     showTab(g.dataset.goto);
     if (g.dataset.open) { const el = document.getElementById(g.dataset.open); if (el) { el.open = true; el.scrollIntoView({ block: 'start' }); } }
   });
-  $('#nav-back').addEventListener('click', () => showTab('more', { fromBack: true }));
   $('#open-sources').addEventListener('click', openSources);
+  // 設定：震動、聲音開關（預設都開）＋「試一下」
+  document.querySelectorAll('[data-fx]').forEach((sw) => {
+    sw.checked = fxSetting.get(sw.dataset.fx);
+    sw.addEventListener('change', () => { fxSetting.set(sw.dataset.fx, sw.checked); if (sw.checked) { if (sw.dataset.fx === 'vibe') haptic('success'); else sound('pick'); } });
+  });
+  document.querySelectorAll('[data-fx-test]').forEach((b) => b.addEventListener('click', () => {
+    if (b.dataset.fxTest === 'vibe') haptic('now', { force: true, mute: true }); else sound('now', { force: true });
+  }));
   // 打字時（鍵盤打開）把底部分頁列藏起來，不要擠在鍵盤上面
   const typing = (el) => el?.matches?.('input[type=search], input[type=text], textarea');
   document.addEventListener('focusin', (e) => { if (typing(e.target)) document.body.classList.add('kb'); });
@@ -226,6 +238,7 @@ function bind() {
 
   $('#search').addEventListener('input', renderBoard);
   $('#filter-pos').addEventListener('change', renderBoard);
+  window.addEventListener('mylist:change', renderBoard);
 
 
   $('#board').addEventListener('click', (e) => {
@@ -235,26 +248,22 @@ function bind() {
   });
 }
 
-const PAGES = ['today', 'draft', 'pickup', 'live', 'more', 'demo'];
+const PAGES = ['demo', 'draft', 'pickup', 'live', 'more'];
 // 返回手勢用：記住走過的分頁
 const tabHist = [];
 let curTab = null;
 function showTab(tab, { fromBack = false } = {}) {
-  if (!PAGES.includes(tab)) tab = 'today';
+  if (!PAGES.includes(tab)) tab = 'demo';
   if (!fromBack && curTab && curTab !== tab) { tabHist.push(curTab); if (tabHist.length > 20) tabHist.shift(); }
   curTab = tab;
   document.getElementById('toast')?.classList.remove('show'); // 換頁就收起上一頁的「復原」
-  // Demo 是「更多」底下的子頁
-  const bar = tab === 'demo' ? 'more' : tab;
-  document.querySelectorAll('.tb').forEach((b) => b.classList.toggle('active', b.dataset.tab === bar));
+  document.querySelectorAll('.tb').forEach((b) => b.classList.toggle('active', b.dataset.tab === tab));
   for (const p of PAGES) $(`#tab-${p}`).hidden = p !== tab;
-  $('#nav-back').hidden = tab !== 'demo';
   $('#mini-title').textContent = $(`#tab-${tab} .large-title`)?.textContent ?? '';
   window.scrollTo(0, 0);
   watchTitle(tab);
   if (tab === 'live') live?.onShow();
   if (tab === 'pickup') pickup?.onShow();
-  if (tab === 'today') renderToday();
   if (tab === 'demo') document.dispatchEvent(new Event('demo:shown'));
   lsSet(LS.tab, tab);
 }
@@ -272,27 +281,6 @@ function watchTitle(tab) {
   titleObs.observe(t);
 }
 
-// 今天：依季節顯示最重要的事
-function renderToday() {
-  if (!state.players) { $('#today').innerHTML = '<div class="today-card sk-card"><i></i><b></b><b></b></div><div class="today-card sk-card"><i></i><b></b></div>'; return; }
-  const m = new Date().getMonth() + 1;
-  const next = state.ranked.slice(0, 3); // 選秀表真正的前 3 名（不看劃記）
-  const strat = $('#strategy-summary')?.textContent.replace(/^：/, '') ?? '';
-  const cards = [];
-  if (m >= 4 && m <= 9) {
-    cards.push(`<div class="today-card"><div class="k">本週對戰</div><div class="hero">即時比分</div><div class="muted small">這週 18 類誰贏誰輸、今天誰有比賽</div>
-      <div class="acts"><button type="button" class="btn primary" data-goto="live">看本週對戰</button><button type="button" class="btn" data-goto="pickup">撿人建議</button></div></div>`);
-  } else if (m >= 2 && m <= 3) {
-    cards.push(`<div class="today-card"><div class="k">選秀季</div><div class="hero">準備選秀</div><div class="muted small">選秀那天打開「選秀即時同步」，App 會幫你劃掉被選走的人，快輪到你時手機會震動</div>
-      <div class="acts"><button type="button" class="btn primary" data-goto="draft" data-open="ds-box">選秀即時同步</button><button type="button" class="btn" data-goto="draft">選秀表</button></div></div>`);
-  } else {
-    const y = m >= 10 ? new Date().getFullYear() + 1 : new Date().getFullYear();
-    cards.push(`<div class="today-card"><div class="k">休賽季中</div><div class="hero">${y} 選秀</div><div class="muted small">大約 3 月下旬選秀｜現在可以先看選秀表、玩模擬</div>
-      ${next.length ? `<div class="sumline" style="margin-top:8px">選秀表前 3 名：${next.map((p) => `<b>${esc(p.name)}</b>`).join('、')}</div>` : ''}
-      <div class="acts"><button type="button" class="btn primary" data-goto="draft">看選秀表</button><button type="button" class="btn" data-goto="demo">模擬 ${y}</button></div></div>`);
-  }
-  $('#today').innerHTML = cards.join('');
-}
 
 async function load() {
   state.season = lastSeason();
@@ -354,10 +342,9 @@ window.__appBack = () => {
   const fm = document.getElementById('ds-focus');
   if (fm && !fm.hidden) { fm.querySelector('#ds-focus-close')?.click(); return 'handled'; }
   if (document.activeElement?.matches?.('input, textarea')) { document.activeElement.blur(); return 'handled'; }
-  if (curTab === 'demo') { showTab('more', { fromBack: true }); return 'handled'; }
   const prev = tabHist.pop();
   if (prev && prev !== curTab) { showTab(prev, { fromBack: true }); return 'handled'; }
-  if (curTab !== 'today') { showTab('today', { fromBack: true }); return 'handled'; }
+  if (curTab !== 'demo') { showTab('demo', { fromBack: true }); return 'handled'; }
   if (Date.now() - exitArmed < 2000) return 'exit';
   exitArmed = Date.now();
   toast('再滑一次離開', { ms: 2000 });
@@ -380,9 +367,9 @@ initDraftSync({
   getMarks: () => state.marks,
   setMarks: (m) => { state.marks = m; lsSet(LS.marks, m); renderBoard(); },
 });
-live = initLive({ getBoard: () => state.ranked, weeklyUrl: `data/weekly-${lastSeason()}.json` });
+live = initLive({ getBoard: () => state.ranked });
 initDemo({ getBoard: () => state.ranked, getConfig: () => buildConfig(state.selected, state.prefs), getSeason: () => state.season, getSelection: () => ({ selected: [...state.selected], prefs: [...state.prefs] }) });
-showTab(lsGet(LS.tab, 'today'));
+showTab(lsGet(LS.tab, 'demo'));
 // 內建資料包：手機裡還沒有的資料（對手 10 年習慣、聯盟順位）直接補上，不用等 Yahoo 慢慢讀
 PACK.seedBundled().then((done) => { if (done.includes('demo.profiles')) reloadProfiles(); });
 // 下拉更新：撿人＝重抓 Yahoo 陣容與自由球員；即時＝重抓今天比分（今天頁的資料一天才抓一次，不用下拉）

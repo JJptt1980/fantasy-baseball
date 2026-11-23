@@ -5,9 +5,12 @@ export const PACK_KEYS = {
   'adp.league': '聯盟近兩年選秀順位',
   'adv.marks': '選秀表的我選／被選',
   'adv.notes': '我的筆記',
+  'adv.mylist': '我的名單（優先／不要）',
+  'fx.vibe': '震動開關',
+  'fx.sound': '聲音開關',
   'adv.strategies': '選秀風格',
   'adv.prefs': '選秀小調整',
-  'demo.manual.save': 'Demo 存檔',
+  'demo.manual.save': '2027 模擬存檔',
   'pk.picks': '撿人勾選',
   'pk.wants': '撿人「我想要」',
 };

@@ -19,7 +19,7 @@ export async function run(n = 100, s0 = 5) {
   localStorage.setItem('mn.draftTipSkip', 'true');
   localStorage.setItem('mn.room', JSON.stringify({ clock: 60, speed: 0.15 }));
   for (let g = 0; g < n && R.running; g++) {
-    q1('.tb[data-tab=more]').click(); q1('[data-goto=demo]').click(); q1('#demo-mode [data-mode=manual]').click();
+    q1('.tb[data-tab=demo]').click();
     await sleep(100);
     // 上一場沒打完：用「重新開始」
     if (q1('[data-act=restart]')) { tap(q1('[data-act=restart]')); await sleep(150); tap(q1('[data-rs=yes]')); await sleep(150); if (!q1('#mn-start').hidden) R.restartOk++; else issue('重新開始沒有回到開始畫面'); }

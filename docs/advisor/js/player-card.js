@@ -1,5 +1,6 @@
 // 球員一句話理由＋底部詳情卡（選秀表、Demo 選秀共用）
-import { esc, haptic, sheet, closeSheet, sparkline, miniBars, zPct } from './ui-kit.js';
+import { esc, haptic, sheet, closeSheet, sparkline, miniBars, zPct, icon, toast } from './ui-kit.js';
+import { statusOf, setStatus } from './mylist.js';
 
 export const NICE = {
   'B:R': '得分', 'B:H': '安打', 'B:HR': '全壘打', 'B:RBI': '打點', 'B:SB': '盜壘', 'B:BB': '保送', 'B:K': '少三振', 'B:AVG': '打擊率', 'B:OPS': 'OPS',
@@ -53,7 +54,28 @@ function trendOf(p, wk) {
 
 // 詳情卡：season＝數據年份（長條、折線）；lead＝最上面那句話（預設用 reasonOf）；
 // actions＝[{ label, primary, run }]，按了會先關卡片再執行
-export function openPlayerCard(p, { season, lead, extra = '', actions = [] } = {}) {
+// 我的名單按鈕（⭐ 優先想要／🚫 不要）：再按一次就拿掉
+export function listButtons(id) {
+  const st = statusOf(id);
+  return `<div class="ml-btns" data-ml-id="${esc(id)}">
+    <button type="button" class="ml-b ${st === 'prio' ? 'on prio' : ''}" data-ml="prio" aria-pressed="${st === 'prio'}">${icon('star', { fill: st === 'prio' })}${st === 'prio' ? '在優先名單' : '加入優先'}</button>
+    <button type="button" class="ml-b ${st === 'no' ? 'on no' : ''}" data-ml="no" aria-pressed="${st === 'no'}">${icon('ban')}${st === 'no' ? '在不要名單' : '加入不要'}</button></div>`;
+}
+export function bindListButtons(root, name) {
+  root.addEventListener('click', (e) => {
+    const b = e.target.closest('[data-ml]');
+    if (!b) return;
+    const wrap = b.closest('[data-ml-id]');
+    const id = wrap.dataset.mlId;
+    const kind = statusOf(id) === b.dataset.ml ? null : b.dataset.ml;
+    setStatus(id, kind);
+    haptic('mark');
+    wrap.outerHTML = listButtons(id);
+    toast(kind === 'prio' ? '已加入優先：推薦會往前排' : kind === 'no' ? '已加入不要：不會再推薦' : '已從名單拿掉', { ms: 2500 });
+  });
+}
+
+export function openPlayerCard(p, { season, lead, extra = '', actions = [], list = true } = {}) {
   haptic('tap');
   const bars = miniBars(Object.entries(p.z ?? {}).map(([c, z]) => {
     const pct = zPct(z);
@@ -62,12 +84,14 @@ export function openPlayerCard(p, { season, lead, extra = '', actions = [] } = {
   const box = sheet(`
     <div class="sh-head"><div><div class="sh-name">${esc(p.name)}<span class="pos">${esc(p.pos)}</span></div><div class="muted small">${esc(p.team)}・${p.age} 歲</div></div><button type="button" class="sh-x" data-close aria-label="關閉">✕</button></div>
     <div class="kpis"><div><b>${p.rank}</b><span>選秀表</span></div><div><b>${p.round}</b><span>建議輪次</span></div><div><b>${p.marketRank}</b><span>市場排名</span></div></div>
+    ${list ? listButtons(p.id) : ''}
     <p class="why1 lead">${esc(lead ?? reasonOf(p))}</p>${extra}
     <h3>各類別在聯盟的位置${season ? `（${season} 季）` : ''}</h3>${bars}
     <h3 id="sh-trend-t">${season ?? ''} 逐週走勢</h3><div id="sh-trend" class="muted small">讀取中…</div>
     <div class="line small muted" style="margin-top:10px">${esc(statLine(p))}${p.projSrc ? `<br>數字來源：${esc(p.projSrc === '預測' ? '明年預測 60%＋去年實際 40%' : p.projSrc === 'Marcel' ? 'Marcel 推估（官方沒有預測）' : '官方預測（去年沒在大聯盟）')}` : ''}</div>
     ${p.notes?.length ? `<div class="note">${esc(p.notes.join('、'))}</div>` : ''}
     ${actions.length ? `<div class="sh-acts">${actions.map((a, i) => `<button type="button" class="btn ${a.primary ? 'primary' : ''}" data-sh="${i}">${esc(a.label)}</button>`).join('')}</div>` : ''}`);
+  if (list) bindListButtons(box, p.name);
   box.addEventListener('click', (e) => {
     const i = e.target.closest('[data-sh]')?.dataset.sh;
     if (i != null) { closeSheet(); actions[Number(i)].run(); }

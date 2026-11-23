@@ -11,9 +11,40 @@ const HAPTIC = {
   error: [60, 40, 60, 40, 60],  // 失敗
   soon: [200, 120, 200],        // 選秀：剩 2 順位
   now: [500, 200, 500, 200, 500], // 選秀：輪到你
+  pick: [12, 60, 18],           // 選到人
 };
-export function haptic(kind = 'tap') {
-  try { navigator.vibrate?.(HAPTIC[kind] ?? 10); } catch { /* 不支援就算了 */ }
+// 設定（「更多」可以開關）：預設都開
+const fxOn = (k) => { try { return localStorage.getItem(k) !== 'off'; } catch { return true; } };
+export const fxSetting = { get: (k) => fxOn(`fx.${k}`), set: (k, on) => { try { localStorage.setItem(`fx.${k}`, on ? 'on' : 'off'); } catch { /* 存不了就算了 */ } } };
+const SOUND_OF = { now: 'now', soon: 'soon', pick: 'pick' };
+export function haptic(kind = 'tap', { force = false, mute = false } = {}) {
+  if (force || fxOn('fx.vibe')) {
+    const pat = HAPTIC[kind] ?? 10;
+    try {
+      // App 裡用原生震動（App 內網頁不支援 navigator.vibrate）；電腦瀏覽器用網頁的
+      if (window.Feedback) window.Feedback.vibrate([].concat(pat).join(','), kind === 'now' || kind === 'soon');
+      else navigator.vibrate?.(pat);
+    } catch { /* 不支援就算了 */ }
+  }
+  if (SOUND_OF[kind] && !mute) sound(kind);
+}
+
+// ── 提示音：輪到你（兩聲）、快輪到你（一聲）、選到人（短短一聲） ──
+let actx = null;
+export function sound(kind, { force = false } = {}) {
+  if (!force && !fxOn('fx.sound')) return;
+  try {
+    if (window.Feedback) { window.Feedback.beep(kind); return; }
+    actx ??= new (window.AudioContext || window.webkitAudioContext)();
+    const notes = { now: [[880, 0], [1175, 0.18], [880, 0.5], [1175, 0.68]], soon: [[988, 0]], pick: [[1319, 0]] }[kind] ?? [[988, 0]];
+    for (const [f, at] of notes) {
+      const o = actx.createOscillator(); const g = actx.createGain();
+      o.frequency.value = f; o.type = 'sine';
+      const t = actx.currentTime + at;
+      g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(0.25, t + 0.01); g.gain.exponentialRampToValueAtTime(0.0001, t + 0.16);
+      o.connect(g).connect(actx.destination); o.start(t); o.stop(t + 0.18);
+    }
+  } catch { /* 不支援就算了 */ }
 }
 
 // ── 復原提示（底部浮出，6 秒後消失） ──
@@ -217,6 +248,7 @@ const P = {
   bandage: '<rect x="3" y="8.5" width="18" height="7" rx="3.5" transform="rotate(-45 12 12)"/><path d="M11 11h.01M13 13h.01M11 13h.01M13 11h.01"/>',
   clock: '<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/>',
   restart: '<path d="M4 12a8 8 0 1 0 2.3-5.7L4 8.6M4 4v4.6h4.6"/>',
+  ban: '<circle cx="12" cy="12" r="9"/><path d="M5.6 5.6l12.8 12.8"/>',
   help: '<circle cx="12" cy="12" r="9"/><path d="M9.5 9.5a2.5 2.5 0 1 1 3.5 2.3c-.6.3-1 .9-1 1.6v.6M12 17h.01"/>',
 };
 // icon('sync')；fill＝實心（星星、播放）

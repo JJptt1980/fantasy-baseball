@@ -8,6 +8,7 @@ import { buildConfig } from './strategies.js';
 import { CAT_LABEL } from './pickup.js';
 import { haptic, toast, miniBars, sheet, closeSheet, icon, stars, checkPop, countUp } from './ui-kit.js';
 import { reasonOf, openPlayerCard, NICE } from './player-card.js';
+import { statusOf } from './mylist.js';
 
 const $ = (s) => document.querySelector(s);
 const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
@@ -177,8 +178,7 @@ function draftWithUndo(fn, name, prefix = '選了') {
     if (wasDraft && g.phase !== 'draft') st.showReport = true;
     save();
   } catch (e) { console.error(e); status(e.message, 'error'); return; }
-  haptic('mark');
-  if (name && prefix === '選了') checkPop();
+  if (name && prefix === '選了') { checkPop(); haptic('pick'); } else haptic('mark');
   toast(name ? `${prefix} ${name}` : '剩下照建議選完', {
     undo: () => {
       roomReset();
@@ -265,6 +265,18 @@ const recSentence = (p) => {
 const LEVEL = ['<span class="tag">不建議</span>', `<span class="tag lv1">${stars(1)} 可以考慮</span>`, `<span class="tag lv2">${stars(2)} 也很好</span>`, `<span class="tag lv3">${stars(3)} 最推薦</span>`];
 const nextTag = (p) => (p.verdict ? LEVEL[p.verdict.level] : '');
 
+// 我的名單小標籤：⭐ 優先／🚫 不要
+function mlTag(id) {
+  const k = statusOf(id);
+  return k === 'prio' ? `<span class="ml-tag prio">${icon('star', { fill: true })}優先</span>` : k === 'no' ? `<span class="ml-tag no">${icon('ban')}不要</span>` : '';
+}
+// 名單改了（在球員卡按了優先／不要）→ 推薦馬上重算
+window.addEventListener('mylist:change', () => {
+  if (st.g?.phase !== 'draft') return;
+  if (room.sel != null && statusOf(room.sel) === 'no') room.sel = null;
+  renderDraft();
+});
+
 function renderDraft() {
   const g = st.g;
   const opt = g.draftOptions();
@@ -296,8 +308,8 @@ function renderDraft() {
     body = `<div class="card">${rosterSummary(mine)}${mine.map((p) => `<div class="roll-row"><b>${esc(p.name)}</b> <span class="pos">${esc(p.pos)}</span></div>`).join('') || '<p class="muted">還沒選人</p>'}</div>`;
   } else {
     // 球員：輪到你時給 3 個建議；別人在選的時候先看清單（還沒輪到你，不能選）
-    const row = (p, i) => `<div class="pick-row ${room.sel === p.id ? 'sel' : ''}" data-sel="${p.id}" ${!myTurn && unconfIds.has(p.id) ? `data-confirm="${p.id}"` : ''} role="button" tabindex="0">
-        <div class="pk-main"><b>${esc(p.name)}</b> <span class="pos">${esc(p.pos)}</span> ${i != null ? nextTag(p) : ''}
+    const row = (p, i) => `<div class="pick-row ${room.sel === p.id ? 'sel' : ''} ${statusOf(p.id) === 'no' ? 'ml-no' : ''}" data-sel="${p.id}" ${!myTurn && unconfIds.has(p.id) ? `data-confirm="${p.id}"` : ''} role="button" tabindex="0">
+        <div class="pk-main"><b>${esc(p.name)}</b> <span class="pos">${esc(p.pos)}</span>${mlTag(p.id)} ${i != null ? nextTag(p) : ''}
           <div class="verdict lv${i != null ? p.verdict?.level ?? 0 : 0}">${esc(i != null ? p.verdict?.why ?? '' : reasonOf(p))}</div></div>
         <button type="button" class="info" data-card="${p.id}" aria-label="看 ${esc(p.name)} 的詳細資料">ⓘ</button></div>`;
     const recIds = new Set(opt.recommended.map((p) => p.id));
@@ -309,7 +321,7 @@ function renderDraft() {
     const others = pool.filter((p) => !recIds.has(p.id) && (!st.q || p.name.toLowerCase().includes(st.q.toLowerCase())) && (!st.pos || st.pos === p.side || st.pos === p.pos));
     body = `${myTurn ? `<div class="card" id="mn-recs"><div class="sumline small">還缺 <b>${esc(openTxt || '—')}</b>${opt.forced ? '｜<b class="bad-text">只能選缺的位置</b>' : ''}</div>
         ${starred.map((p) => row(p, opt.recommended.indexOf(p))).join('')}
-        ${others.length ? `<div class="backup">${icon('swap')} 上面的都不要？改看：<b>${others.slice(0, 2).map((p) => esc(p.name)).join('</b>、<b>')}</b></div>` : ''}</div>`
+        ${others.length ? `<div class="backup">${icon('swap')} 上面的都不要？改看：<b>${others.filter((p) => statusOf(p.id) !== 'no').slice(0, 2).map((p) => esc(p.name)).join('</b>、<b>')}</b></div>` : ''}</div>`
       : `${(() => {
           const last = room.reveal[room.shown - 1];
           if (!last || room.confirmed.has(last.player.id)) return '<div class="card"><div class="muted small">還沒輪到你。別人選走誰，就點誰記下來（跟正式選秀一樣）。輪到你時會震動。</div></div>';

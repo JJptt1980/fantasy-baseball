@@ -69,3 +69,13 @@ test('練習重播：照時間放出', async () => {
   src.pause();
   assert.equal(src.paused, true);
 });
+
+test('我的名單：不要的人永遠不推薦、優先的人往前排', () => {
+  const board = Array.from({ length: 10 }, (_, i) => P(i + 1, `G${i}`, 'B', 'OF', i + 1));
+  const base = recommend({ board, takenIds: new Set(), myPlayers: [], myPicksLeft: 30, list: { prio: new Set(), no: new Set() } });
+  assert.equal(base[0].p.id, 1);
+  const r = recommend({ board, takenIds: new Set(), myPlayers: [], myPicksLeft: 30, n: 10, list: { prio: new Set(['5']), no: new Set(['1']) } });
+  assert.ok(!r.some((x) => x.p.id === 1));
+  assert.equal(r[0].p.id, 5);
+  assert.ok(r[0].reasons.includes('在你的優先名單'));
+});
