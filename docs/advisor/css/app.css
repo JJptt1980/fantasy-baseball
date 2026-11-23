@@ -699,8 +699,13 @@ details[open] > summary::before { transform: rotate(45deg); }
 .row .mlq .ic { width: 19px; height: 19px; }
 /* 搜尋列：最愛／不愛篩選按鈕；同步只留圖示 */
 .draft-head > .toolbar { grid-template-columns: minmax(0, 1fr) auto auto auto auto; gap: 6px; }
-.draft-head > .toolbar select { width: 4.6em; padding-left: 8px; padding-right: 4px; }
+.draft-head > .toolbar select { width: auto; min-width: 0; padding-left: 10px; padding-right: 26px; background-position: right 6px center; }
 .lf { height: 36px; padding: 0 10px; border-radius: 10px; border: 1px solid var(--border); background: var(--surface-2); color: var(--text); font: inherit; font-size: var(--fs-sub); font-weight: 600; white-space: nowrap; }
 .lf.on[data-lf=prio] { background: color-mix(in srgb, var(--warn, #e8a400) 20%, transparent); border-color: var(--warn, #e8a400); color: var(--warn, #e8a400); }
 .lf.on[data-lf=no] { background: color-mix(in srgb, var(--bad, #e5484d) 16%, transparent); border-color: var(--bad, #e5484d); color: var(--bad, #e5484d); }
 .ds-tg { width: 36px; padding: 0; justify-content: center; }
+/* 大字體手機：搜尋列各按鈕再緊一點，讓搜尋框留得下 */
+.draft-head > .toolbar { gap: 4px; }
+.draft-head > .toolbar .lf { padding: 0 7px; }
+.draft-head > .toolbar select { padding-left: 8px; padding-right: 22px; background-position: right 4px center; }
+.draft-head > .toolbar input { padding-left: 10px; padding-right: 6px; }
