@@ -1,7 +1,7 @@
 // 選秀頁「🔄 選秀即時同步」：自動標我選／被選、還差幾順位、前 3 推薦、預測下一輪、快輪到時震動
 import * as Y from './yahoo-source.js';
 import { yahooSource, replaySource, nextDelay, RateLimited } from './draft-source.js';
-import { haptic, toast } from './ui-kit.js';
+import { haptic, toast, icon, stars } from './ui-kit.js';
 import { draftState, recommend, predictAvailable, openSlots, TEAMS, ROUNDS } from './draft-sync.js';
 
 const $ = (s) => document.querySelector(s);
@@ -173,7 +173,7 @@ function update(picks) {
 function starRows(recs) {
   const top = recs[0];
   const lv = (r, i) => (i === 0 ? 3 : r.score >= top.score - Math.abs(top.score) * 0.05 ? 2 : r.score >= top.score - Math.abs(top.score) * 0.15 ? 1 : 0);
-  const TAG = ['<span class="tag">備案</span>', '<span class="tag lv1">⭐ 可以考慮</span>', '<span class="tag lv2">⭐⭐ 也很好</span>', '<span class="tag lv3">⭐⭐⭐ 最推薦</span>'];
+  const TAG = ['<span class="tag">備案</span>', `<span class="tag lv1">${stars(1)} 可以考慮</span>`, `<span class="tag lv2">${stars(2)} 也很好</span>`, `<span class="tag lv3">${stars(3)} 最推薦</span>`];
   return recs.slice(0, 3).map((r, i) => `<div class="mn-row tap-taken" data-taken="${r.p.id}" role="button"><div><b>${esc(r.p.name)}</b> <span class="pos">${esc(r.p.pos)}</span> ${TAG[lv(r, i)]}
       <div class="muted small">${esc(r.reasons[0] ?? '')}</div></div>${takenBtn(r.p)}</div>`).join('') + backupLine(recs);
 }
@@ -190,7 +190,7 @@ function markTaken(id) {
 
 function backupLine(recs) {
   const b = recs.slice(3, 5);
-  return b.length ? `<div class="backup">🔄 上面的被選走了？改選：<b>${b.map((r) => esc(r.p.name)).join('</b>、<b>')}</b></div>` : '';
+  return b.length ? `<div class="backup">${icon('swap')} 上面的被選走了？改選：<b>${b.map((r) => esc(r.p.name)).join('</b>、<b>')}</b></div>` : '';
 }
 
 // ── 選秀專注模式：全螢幕只顯示「還差幾順位＋前 3 推薦＋剛剛誰被選」 ──
@@ -199,7 +199,7 @@ function renderFocus() {
   if (!box || box.hidden || !st.ctx) return;
   const { s, recs } = st.ctx;
   const now = s.picksUntil === 0;
-  const big = s.done ? '✅' : s.picksUntil == null ? '?' : now ? '輪到你' : s.picksUntil;
+  const big = s.done ? icon('checkCircle') : s.picksUntil == null ? '?' : now ? '輪到你' : s.picksUntil;
   const sub = s.done ? '選秀結束' : s.picksUntil == null ? '還不知道你第幾個選' : now ? `總第 ${s.myNext} 位` : `個人後輪到你`;
   const last = s.made.slice(-3).reverse();
   box.innerHTML = `
@@ -255,7 +255,7 @@ function renderButtons() {
   $('#ds-start').hidden = st.running;
   $('#ds-stop').hidden = !st.running;
   $('#ds-pause').hidden = !(st.running && st.source?.kind === 'replay');
-  if (st.source?.kind === 'replay') $('#ds-pause').textContent = st.source.paused ? '▶ 繼續' : '⏸ 暫停';
+  if (st.source?.kind === 'replay') $('#ds-pause').innerHTML = st.source.paused ? `${icon('play', { fill: true })} 繼續` : `${icon('pause')} 暫停`;
 }
 
 function renderMeta() {
@@ -277,9 +277,9 @@ function render() {
   const cur = s.done ? null : s.nextOverall;
   const curRound = cur ? Math.ceil(cur / TEAMS) : ROUNDS;
   let banner = '';
-  if (s.done) banner = '<div class="ds-banner">✅ 選秀結束</div>';
+  if (s.done) banner = `<div class="ds-banner">${icon('checkCircle')} 選秀結束</div>`;
   else if (!s.slot) banner = '<div class="ds-banner warn">還不知道你第幾個選：在上面選「你第幾個選」，或等你第 1 輪選完，App 會自己知道。</div>';
-  else if (s.picksUntil === 0) banner = `<div class="ds-banner now"><span>⏰ 輪到你了！</span><button type="button" class="btn primary" id="ds-room">打開 Yahoo 選秀室</button></div>`;
+  else if (s.picksUntil === 0) banner = `<div class="ds-banner now"><span>${icon('clock')} 輪到你了！</span><button type="button" class="btn primary" id="ds-room">打開 Yahoo 選秀室</button></div>`;
   else banner = `<div class="ds-banner"><span>再 <b>${s.picksUntil}</b> 個人就輪到你（大約 ${s.picksUntil} 分鐘）</span></div>`;
 
   const open = openSlots(s.mine);
@@ -291,10 +291,10 @@ function render() {
       <div class="sumline">應該還在：${atMine.stay.slice(0, 6).map((p) => esc(p.name)).join('、')}</div>
       <div class="sumline muted">可能被搶走：${atMine.gone.sort((a, b) => a.rank - b.rank).slice(0, 6).map((p) => esc(p.name)).join('、') || '—'}</div></details>` : '';
   const logHtml = st.practiceLog.length ? `<details class="sub"><summary>你選的 vs App 建議的（${st.practiceLog.length} 次）</summary>
-      ${st.practiceLog.map((x) => `<div class="sumline small">第 ${x.round} 輪：你選 <b>${esc(x.picked)}</b>｜App 推薦 ${x.recs.map(esc).join('、') || '—'}${x.recs.includes(x.picked) ? ' ✅' : ''}</div>`).join('')}</details>` : '';
+      ${st.practiceLog.map((x) => `<div class="sumline small">第 ${x.round} 輪：你選 <b>${esc(x.picked)}</b>｜App 推薦 ${x.recs.map(esc).join('、') || '—'}${x.recs.includes(x.picked) ? ` ${icon('check')}` : ''}</div>`).join('')}</details>` : '';
 
   panel.innerHTML = `${banner}
-    ${s.done ? '' : '<button type="button" class="btn" id="ds-focus-open">⛶ 放大模式（只看最重要的）</button>'}
+    ${s.done ? '' : `<button type="button" class="btn" id="ds-focus-open">${icon('expand')} 放大模式（只看最重要的）</button>`}
     ${st.source?.kind === 'replay' ? '<div class="muted small">練習中：選秀表上被劃掉的人，按「停止」就會恢復。</div>' : ''}
     <div class="sumline muted small">第 ${curRound} 輪｜你第 ${s.slot ?? '?'} 個選｜你已經選了 ${s.mine.length} 人</div>
     <div class="sumline">${open.length ? `還缺：<b>${esc(missing)}</b>` : '上場位置都有人了'}${s.mine.length ? `<span class="muted small">｜${s.mine.map((p) => esc(p.name)).join('、')}</span>` : ''}</div>

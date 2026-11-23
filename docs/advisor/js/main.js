@@ -9,7 +9,7 @@ import { initDemo, reloadProfiles } from './demo-ui.js';
 import * as PACK from './pack.js';
 import { initLive } from './live-ui.js';
 import { initDraftSync } from './draft-sync-ui.js';
-import { haptic, toast, pullToRefresh, skeleton, sheet, closeSheet } from './ui-kit.js';
+import { haptic, toast, pullToRefresh, skeleton, sheet, closeSheet, icon } from './ui-kit.js';
 import { reasonOf, openPlayerCard, statLine as cardStatLine } from './player-card.js';
 
 const $ = (s) => document.querySelector(s);
@@ -135,7 +135,7 @@ function openSources() {
     <p class="muted small">只存在這支手機的 App 裡，不會上傳到其他地方。免費版每天 50 次（App 一天用 2 次），回傳可能被截短。</p>
     <div class="sh-acts"><button type="button" class="btn primary" data-src="save">儲存並測試</button>${has ? '<button type="button" class="btn" data-src="test">測試</button><button type="button" class="btn" data-src="clear">刪除金鑰</button>' : ''}</div>
     <div id="fp-result" class="sumline" style="margin-top:10px"></div>
-    <h3>📦 資料包（換手機、兩支手機同步用）</h3>
+    <h3>${icon('box')} 資料包（換手機、兩支手機同步用）</h3>
     <p class="muted small">把這支手機的資料存成一個檔案，到另一支手機「從檔案匯入」就一樣了。包含：${Object.values(PACK.PACK_KEYS).join('、')}。不含 FantasyPros 金鑰。</p>
     <div class="sh-acts"><button type="button" class="btn" data-src="export">匯出成檔案</button><button type="button" class="btn" data-src="import">從檔案匯入</button></div>
     <div id="pack-result" class="sumline" style="margin-top:8px"></div>`);
@@ -144,7 +144,7 @@ function openSources() {
     out.textContent = '連線 FantasyPros 中…';
     try {
       const fp = await ADP.fantasypros(state.season + 1, { force: true });
-      out.innerHTML = `✅ 成功：專家共識 <b>${fp.ecr.length}</b> 人、綜合 ADP <b>${fp.adp.length}</b> 人（${fp.season} 季）。${fp.ecr.length < 200 ? '<br>人數偏少，免費版可能只給前面一部分。' : ''}`;
+      out.innerHTML = `${icon('checkCircle')} 成功：專家共識 <b>${fp.ecr.length}</b> 人、綜合 ADP <b>${fp.adp.length}</b> 人（${fp.season} 季）。${fp.ecr.length < 200 ? '<br>人數偏少，免費版可能只給前面一部分。' : ''}`;
       haptic('success');
       loadAdp();
     } catch (e) { out.textContent = `❌ ${e.message}`; haptic('error'); }
@@ -156,15 +156,15 @@ function openSources() {
     if (a === 'clear') { ADP.fpKey.set(''); out.textContent = '已刪除金鑰'; loadAdp(); }
     const pr = box.querySelector('#pack-result');
     if (a === 'export') {
-      window.__onFileSaved = (ok) => { pr.textContent = ok ? '✅ 已存好檔案' : '沒有存檔（取消了或存不進去）'; haptic(ok ? 'success' : 'warn'); };
-      if (PACK.exportPack() === 'browser') pr.textContent = '✅ 已下載檔案';
+      window.__onFileSaved = (ok) => { pr.innerHTML = ok ? `${icon('checkCircle')} 已存好檔案` : '沒有存檔（取消了或存不進去）'; haptic(ok ? 'success' : 'warn'); };
+      if (PACK.exportPack() === 'browser') pr.innerHTML = `${icon('checkCircle')} 已下載檔案`;
     }
     if (a === 'import') {
       PACK.pickPackText().then((text) => {
         if (!text) { pr.textContent = '沒有選檔案'; return; }
         try {
           const done = PACK.applyPack(JSON.parse(text));
-          pr.textContent = `✅ 匯入 ${done.length} 項：${done.map((k) => PACK.PACK_KEYS[k]).join('、')}。重新整理中…`;
+          pr.innerHTML = `${icon('checkCircle')} 匯入 ${done.length} 項：${done.map((k) => PACK.PACK_KEYS[k]).join('、')}。重新整理中…`;
           haptic('success');
           setTimeout(() => location.reload(), 1200);
         } catch (err) { pr.textContent = `❌ ${err.message === 'Unexpected end of JSON input' ? '檔案壞掉了' : err.message}`; haptic('error'); }

@@ -3,7 +3,7 @@ import * as Y from './yahoo-source.js';
 import { seasonStats, toMaps } from './mlb.js';
 import { CAT_LABEL } from './pickup.js';
 import { track, resolveRoster, gameStatus, addDays } from './live.js';
-import { haptic } from './ui-kit.js';
+import { haptic, icon } from './ui-kit.js';
 const LOWER = new Set(['B:K', 'P:L', 'P:BB', 'P:ERA', 'P:WHIP']);
 // 我方占比（0~1）：越小越好的類別反過來算；都沒有數字就算 0.5
 function share(cat, me, opp) {
@@ -185,14 +185,14 @@ function renderDays() {
 function stopPlay() {
   clearTimeout(st.playTimer);
   st.playTimer = null;
-  $('#lv-play').textContent = '▶ 播放這一週';
+  $('#lv-play').innerHTML = `${icon('play', { fill: true })} 播放這一週`;
 }
 
 async function playWeek() {
   if (st.playTimer) return stopPlay();
   const w = st.weekly.weeks[st.week - 1];
   st.day = w.start;
-  $('#lv-play').textContent = '⏸ 停止';
+  $('#lv-play').innerHTML = `${icon('pause')} 停止`;
   const step = async () => {
     renderDays();
     await refresh();

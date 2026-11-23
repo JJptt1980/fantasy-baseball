@@ -33,7 +33,7 @@
     <section id="tab-draft" hidden>
       <h1 class="large-title">選秀</h1>
       <details class="card" id="ds-box">
-        <summary>🔄 選秀即時同步 <span class="muted small" id="ds-meta"></span></summary>
+        <summary><svg class="ic" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M20 11a8 8 0 0 0-14.3-4.9L4 8M4 4v4h4M4 13a8 8 0 0 0 14.3 4.9L20 16M20 20v-4h-4"/></svg> 選秀即時同步 <span class="muted small" id="ds-meta"></span></summary>
         <p class="muted small">選秀那天打開這個：App 會一直看 Yahoo 上誰被選走，自動幫你劃掉；快輪到你時手機會震動，並告訴你選誰最好。現在沒比賽，可以選「練習」用去年的選秀試試看。</p>
         <div class="two">
           <label>要看哪一場<select id="ds-mode"><option value="replay">練習（重播去年）</option><option value="yahoo">Yahoo 即時</option></select></label>
@@ -41,9 +41,9 @@
         </div>
         <div class="two" id="ds-speed-wrap" style="margin-top:6px"><label>練習速度<select id="ds-speed"><option value="2">很快（每人 2 秒）</option><option value="4">普通（每人 4 秒）</option><option value="8">慢（每人 8 秒）</option></select></label><span></span></div>
         <div class="demo-btns">
-          <button type="button" class="btn primary" id="ds-start">▶ 開始</button>
-          <button type="button" class="btn" id="ds-pause" hidden>⏸ 暫停</button>
-          <button type="button" class="btn" id="ds-stop" hidden>⏹ 停止</button>
+          <button type="button" class="btn primary" id="ds-start"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true" fill="currentColor" stroke="none"><path d="M8 5.5v13l11-6.5z"/></svg> 開始</button>
+          <button type="button" class="btn" id="ds-pause" hidden><svg class="ic" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M8 5v14M16 5v14"/></svg> 暫停</button>
+          <button type="button" class="btn" id="ds-stop" hidden><svg class="ic" viewBox="0 0 24 24" aria-hidden="true" fill="currentColor" stroke="none"><rect x="6" y="6" width="12" height="12" rx="2"/></svg> 停止</button>
         </div>
         <div id="ds-status" class="status" hidden></div>
         <div id="ds-panel"></div>
@@ -132,7 +132,7 @@
           <label>播放<select id="lv-speed"><option value="4000">慢</option><option value="2500" selected>中</option><option value="1200">快</option></select></label>
         </div>
         <div class="chips" id="lv-days" style="margin-top:10px"></div>
-        <div class="demo-btns"><button type="button" class="btn primary" id="lv-play">▶ 播放這一週</button></div>
+        <div class="demo-btns"><button type="button" class="btn primary" id="lv-play"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true" fill="currentColor" stroke="none"><path d="M8 5.5v13l11-6.5z"/></svg> 播放這一週</button></div>
       </div>
       <div id="lv-status" class="status" hidden></div>
       <div class="card" id="lv-head" hidden></div>
@@ -143,9 +143,9 @@
     <section id="tab-more" hidden>
       <h1 class="large-title">更多</h1>
       <div class="list">
-        <button type="button" class="li" data-goto="demo"><span class="li-ic">🎮</span><span class="li-t">Demo：模擬 2027 球季<small>手動玩或自動播放，對手照聯盟真人 10 年習慣</small></span><span class="chev">›</span></button>
-        <button type="button" class="li" data-goto="draft" data-open="ds-box"><span class="li-ic">🔄</span><span class="li-t">選秀即時同步<small>選秀當天自動標記、推薦、震動提醒</small></span><span class="chev">›</span></button>
-        <button type="button" class="li" id="open-sources"><span class="li-ic">🔑</span><span class="li-t">資料來源與金鑰<small>MLB 預測、Statcast、傷兵、Yahoo／ESPN／FantasyPros 順位</small></span><span class="chev">›</span></button>
+        <button type="button" class="li" data-goto="demo"><span class="li-ic"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="2.5" y="7" width="19" height="11" rx="5.5"/><path d="M7 10.5v4M5 12.5h4M15.5 11.5h.01M18 13.5h.01"/></svg></span><span class="li-t">Demo：模擬 2027 球季<small>手動玩或自動播放，對手照聯盟真人 10 年習慣</small></span><span class="chev">›</span></button>
+        <button type="button" class="li" data-goto="draft" data-open="ds-box"><span class="li-ic"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M20 11a8 8 0 0 0-14.3-4.9L4 8M4 4v4h4M4 13a8 8 0 0 0 14.3 4.9L20 16M20 20v-4h-4"/></svg></span><span class="li-t">選秀即時同步<small>選秀當天自動標記、推薦、震動提醒</small></span><span class="chev">›</span></button>
+        <button type="button" class="li" id="open-sources"><span class="li-ic"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="8" cy="15" r="4"/><path d="M11 12l9-9M16 7l3 3M14 9l2 2"/></svg></span><span class="li-t">資料來源與金鑰<small>MLB 預測、Statcast、傷兵、Yahoo／ESPN／FantasyPros 順位</small></span><span class="chev">›</span></button>
       </div>
       <h3 class="list-h">關於</h3>
       <div class="list"><div class="li static"><span class="li-t">選秀大師<small>數據：MLB 官方公開資料；聯盟資料：你在 App 內登入的 Yahoo。外觀會跟著手機的深色／淺色模式。</small></span></div></div>
@@ -164,7 +164,7 @@
           <div class="two"><label>你第幾個選<select id="mn-slot"><option value="">隨機</option></select></label>
             <label>每次選人時間<select id="mn-clock"><option value="60">60 秒</option><option value="30">30 秒</option><option value="90">90 秒</option><option value="0">不限時</option></select></label></div>
           <div class="two" style="margin-top:6px"><label>別隊選人速度<select id="mn-speed"><option value="1">普通</option><option value="0.4">快</option><option value="2">慢（像真的）</option></select></label>
-            <label>&nbsp;<button type="button" class="btn primary" id="mn-new">▶ 開始新賽季</button></label></div>
+            <label>&nbsp;<button type="button" class="btn primary" id="mn-new"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true" fill="currentColor" stroke="none"><path d="M8 5.5v13l11-6.5z"/></svg> 開始新賽季</button></label></div>
           <div class="demo-btns"><button type="button" class="btn" id="mn-continue" hidden></button></div>
         </div>
         <div id="mn-status" class="status" hidden></div>
@@ -179,9 +179,9 @@
           <label>播放速度<select id="demo-speed"><option value="900">慢</option><option value="450" selected>中</option><option value="120">快</option></select></label>
         </div>
         <div class="demo-btns">
-          <button type="button" id="demo-run" class="btn primary">▶ 開始</button>
-          <button type="button" id="demo-pause" class="btn" hidden>⏸ 暫停</button>
-          <button type="button" id="demo-skip" class="btn" hidden>⏭ 跳到結果</button>
+          <button type="button" id="demo-run" class="btn primary"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true" fill="currentColor" stroke="none"><path d="M8 5.5v13l11-6.5z"/></svg> 開始</button>
+          <button type="button" id="demo-pause" class="btn" hidden><svg class="ic" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M8 5v14M16 5v14"/></svg> 暫停</button>
+          <button type="button" id="demo-skip" class="btn" hidden><svg class="ic" viewBox="0 0 24 24" aria-hidden="true" fill="currentColor" stroke="none"><path d="M5 6l8 6-8 6zM13 6l8 6-8 6z"/></svg> 跳到結果</button>
         </div>
       </div>
       <div id="demo-status" class="status" hidden></div>

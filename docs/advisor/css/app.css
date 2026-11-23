@@ -492,3 +492,64 @@ b, strong, h1, h2, h3, .name, .sh-name, .fc-name { font-weight: 700; }
 .tap-taken { cursor: pointer; }
 .tap-taken:active { background: var(--bad-soft); }
 .just-card .pick-row.just { border: 2px dashed var(--warn); border-radius: 12px; margin-top: 6px; }
+
+/* ══ Apple 感（2026-11-22）══ */
+:root { --r-s: 8px; --r-m: 12px; --r-l: 16px; --ease: cubic-bezier(.32, .72, 0, 1); --spring: cubic-bezier(.34, 1.4, .64, 1); }
+/* 1. 圖示：同一套線條，跟字一樣高 */
+.ic { width: 1.15em; height: 1.15em; vertical-align: -0.2em; flex: 0 0 auto; }
+.btn .ic, .help .ic { margin-right: 2px; }
+.li-ic { display: grid; place-items: center; width: 32px; height: 32px; border-radius: var(--r-s); background: var(--accent-soft); color: var(--accent-text); font-size: 18px; }
+.stars { display: inline-flex; gap: 1px; vertical-align: -0.15em; }
+.stars .ic { width: 0.95em; height: 0.95em; }
+.stars .on { color: var(--accent-strong); }
+.stars .off { color: var(--border); }
+/* 2. 克制：一個主色。建議程度都用紫色系，綠／紅只代表輸贏 */
+.tag.lv3 { background: var(--accent); color: #fff; font-weight: 700; }
+.tag.lv3 .stars .on { color: #fff; } .tag.lv3 .stars .off { color: rgba(255,255,255,.35); }
+.tag.lv2, .tag.lv1 { background: var(--accent-soft); color: var(--accent-text); }
+.pick-row .verdict.lv3 { color: var(--accent-text); font-weight: 600; }
+.pick-row .verdict.lv2, .pick-row .verdict.lv1 { color: var(--text); }
+/* 3. 留白：8 的倍數；圓角三級 */
+main { padding-left: 16px; padding-right: 16px; }
+.card { padding: 16px; border-radius: var(--r-l); margin-bottom: 16px; }
+.today-card, .room-bar, .sheet .kpis div, .fc-rec, .backup, .advice { border-radius: var(--r-m); }
+.btn, select, input[type=search], input[type=text], input[type=password], textarea { border-radius: var(--r-m); }
+.tag, .pos { border-radius: var(--r-s); }
+.pick-row { padding: 12px 8px; border-radius: var(--r-m); }
+.mn-row, .row { padding-top: 12px; padding-bottom: 12px; }
+.room-bar { padding: 16px; margin-bottom: 16px; }
+.room-tools, .room-tabs { margin-bottom: 16px; }
+.backup { padding: 8px 12px; margin-top: 8px; }
+h3 { margin: 24px 0 8px; } h3.first { margin-top: 0; }
+/* 4. 字的層次：大標題更大更粗，區塊標題小而淡 */
+.large-title { font-size: 2.1rem; font-weight: 800; letter-spacing: -0.02em; margin: 8px 0 16px; }
+.card h3, .sheet h3 { font-size: var(--fs-caption); font-weight: 600; color: var(--muted); letter-spacing: .02em; }
+.num, .kpis b, .clock, .fc-n, .score .n { font-variant-numeric: tabular-nums; }
+/* 5. 材質：頂列、底列毛玻璃；卡片背景用材質感 */
+.tabbar { background: color-mix(in srgb, var(--bg) 72%, transparent); -webkit-backdrop-filter: saturate(180%) blur(20px); backdrop-filter: saturate(180%) blur(20px); border-top: 0.5px solid var(--border); }
+.topbar.scrolled { background: color-mix(in srgb, var(--bg) 72%, transparent); -webkit-backdrop-filter: saturate(180%) blur(20px); backdrop-filter: saturate(180%) blur(20px); border-bottom: 0.5px solid var(--border); }
+.sheet-bg.show { background: rgba(0, 0, 0, .4); -webkit-backdrop-filter: blur(2px); backdrop-filter: blur(2px); }
+.sheet { border-radius: 20px 20px 0 0; transition: transform .38s var(--ease); }
+/* 6. 動畫：換頁淡入、按壓微縮、彈出卡片、清單出現 */
+main > section:not([hidden]) { animation: pageIn .26s var(--ease); }
+@keyframes pageIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
+.btn, .li, .pick-row, .tb, .help, .chip, .seg button, .row, .mn-row.tap-taken, .fc-rec { transition: transform .15s var(--ease), background-color .15s, opacity .15s; }
+.btn:active, .li:active, .help:active, .chip:active, .seg button:active { transform: scale(.96); }
+.pick-row:active, .row:active, .mn-row.tap-taken:active, .fc-rec:active { transform: scale(.985); }
+.tb:active { transform: scale(.9); }
+.tb.active svg { animation: tabPop .3s var(--spring); }
+@keyframes tabPop { from { transform: scale(.8); } to { transform: none; } }
+.toast { transition: transform .35s var(--spring), opacity .2s; }
+details > summary { transition: color .15s; }
+details[open] > *:not(summary) { animation: pageIn .22s var(--ease); }
+.room-bar.me.enter { animation: turnIn .4s var(--spring); }
+@keyframes turnIn { from { transform: scale(.96); opacity: .6; } to { transform: none; opacity: 1; } }
+.pick-row.sel { animation: selPop .25s var(--spring); }
+@keyframes selPop { from { transform: scale(.97); } to { transform: none; } }
+/* 8. 小驚喜：選到人中間跳出勾勾 */
+.check-pop { position: fixed; left: 50%; top: 42%; width: 88px; height: 88px; margin: -44px 0 0 -44px; border-radius: 24px; z-index: 90; pointer-events: none;
+  display: grid; place-items: center; color: #fff; background: color-mix(in srgb, var(--accent) 82%, transparent);
+  -webkit-backdrop-filter: blur(12px); backdrop-filter: blur(12px); animation: checkPop .75s var(--ease) forwards; }
+.check-pop .ic { width: 48px; height: 48px; stroke-width: 2.4; }
+@keyframes checkPop { 0% { opacity: 0; transform: scale(.6); } 20% { opacity: 1; transform: scale(1.05); } 35% { transform: scale(1); } 75% { opacity: 1; } 100% { opacity: 0; transform: scale(.96); } }
+@media (prefers-reduced-motion: reduce) { main > section:not([hidden]), details[open] > *:not(summary), .room-bar.me, .pick-row.sel, .tb.active svg { animation: none; } .btn:active, .li:active, .pick-row:active, .row:active { transform: none; } }

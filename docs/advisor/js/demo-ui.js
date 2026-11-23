@@ -5,6 +5,7 @@ import * as Y from './yahoo-source.js';
 import { seasonStats, toMaps } from './mlb.js';
 import { initManual } from './manual-ui.js';
 import { buildPlayers, board as rankBoard, blendMaps } from './rank.js';
+import { icon } from './ui-kit.js';
 import { projections, withProjections, PRESEASON } from './projections.js';
 
 const $ = (s) => document.querySelector(s);
@@ -129,7 +130,7 @@ function step() {
     $('#demo-log').insertAdjacentHTML('beforeend', `<div class="wk"><div class="pickrow">第 ${ev.week} 週季後賽換人：${ev.moves.map((m) => `撿 <b>${esc(m.add.name)}</b> 丟 ${esc(m.drop.name)}`).join('；')}｜額度剩 ${ev.left}</div></div>`);
   } else if (ev.type === 'playoff') {
     const mine = ev.a === st.mySlot || ev.b === st.mySlot;
-    $('#demo-log').insertAdjacentHTML('beforeend', `<div class="wk">第 ${ev.week} 週・${esc(ev.label)}：${nm(ev.a)} ${ev.w}-${ev.l}-${ev.t} ${nm(ev.b)} → <b>${nm(ev.winner)}</b> 晉級${mine ? (ev.winner === st.mySlot ? ' 🎉' : ' 😢') : ''}</div>`);
+    $('#demo-log').insertAdjacentHTML('beforeend', `<div class="wk">第 ${ev.week} 週・${esc(ev.label)}：${nm(ev.a)} ${ev.w}-${ev.l}-${ev.t} ${nm(ev.b)} → <b>${nm(ev.winner)}</b> 晉級${mine ? (ev.winner === st.mySlot ? '' : '') : ''}</div>`);
   } else if (ev.type === 'end') {
     renderStandings(ev.standings, true);
     const won = ev.champ === st.mySlot;
@@ -137,9 +138,9 @@ function step() {
     box.hidden = false;
     box.className = `card final ${won ? 'champ' : ''}`;
     box.innerHTML = won
-      ? `<div class="big">🏆 你拿下 2027 冠軍！</div><div class="muted">例行賽第 ${ev.myRank} 名｜你整季換人 ${ev.moves} 次（季後賽 ${ev.poMoves} 次）、對手共 ${ev.aiMoves} 次</div>`
+      ? `<div class="big">${icon('trophy')} 你拿下 2027 冠軍！</div><div class="muted">例行賽第 ${ev.myRank} 名｜你整季換人 ${ev.moves} 次（季後賽 ${ev.poMoves} 次）、對手共 ${ev.aiMoves} 次</div>`
       : `<div class="big">冠軍：${nm(ev.champ)}</div><div class="muted">你例行賽第 ${ev.myRank} 名${ev.myRank <= 6 ? '，進了季後賽' : '，沒進季後賽'}｜你整季換人 ${ev.moves} 次（季後賽 ${ev.poMoves} 次）、對手共 ${ev.aiMoves} 次</div>`;
-    box.insertAdjacentHTML('beforeend', '<button type="button" class="btn primary" id="demo-again" style="margin-top:10px">🔁 再跑一次</button>');
+    box.insertAdjacentHTML('beforeend', `<button type="button" class="btn primary" id="demo-again" style="margin-top:10px">${icon('repeat')} 再跑一次</button>`);
     return stop();
   }
   return true;
@@ -196,7 +197,7 @@ async function start(getConfig, season) {
   for (const id of ['#demo-final', '#demo-now', '#demo-standings', '#demo-draft', '#demo-log']) $(id).hidden = true;
   $('#demo-run').hidden = true;
   $('#demo-pause').hidden = false;
-  $('#demo-pause').textContent = '⏸ 暫停';
+  $('#demo-pause').innerHTML = `${icon('pause')} 暫停`;
   $('#demo-skip').hidden = false;
   play();
 }
@@ -221,7 +222,7 @@ export function initDemo({ getBoard, getConfig, getSeason, getSelection }) {
   $('#demo-run').addEventListener('click', () => start(getConfig, getSeason()));
   $('#demo-pause').addEventListener('click', () => {
     st.paused = !st.paused;
-    $('#demo-pause').textContent = st.paused ? '▶ 繼續' : '⏸ 暫停';
+    $('#demo-pause').innerHTML = st.paused ? `${icon('play', { fill: true })} 繼續` : `${icon('pause')} 暫停`;
     if (!st.paused) play();
   });
   $('#demo-skip').addEventListener('click', () => {
