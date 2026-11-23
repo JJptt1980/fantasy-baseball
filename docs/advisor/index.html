@@ -67,6 +67,7 @@
 
     <section id="tab-draft" hidden>
       <h1 class="large-title">選秀</h1>
+      <div class="draft-head">
       <details class="card" id="ds-box">
         <summary><svg class="ic" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M20 11a8 8 0 0 0-14.3-4.9L4 8M4 4v4h4M4 13a8 8 0 0 0 14.3 4.9L20 16M20 20v-4h-4"/></svg> 選秀即時同步 <span class="muted small" id="ds-meta"></span></summary>
         <p class="muted small">選秀那天打開這個：App 會一直看 Yahoo 上誰被選走，自動幫你劃掉；快輪到你時手機會震動、響一聲，並告訴你選誰最好。要先在「球季中」頁登入 Yahoo。</p>
@@ -96,6 +97,10 @@
           <option value="3B">3B</option><option value="SS">SS</option><option value="OF">OF</option>
           <option value="DH">DH</option><option value="SP">SP</option><option value="RP">RP</option>
         </select>
+        <button type="button" class="lf" data-lf="prio" aria-pressed="false">最愛</button>
+        <button type="button" class="lf" data-lf="no" aria-pressed="false">不愛</button>
+        <button type="button" class="ds-tg" id="ds-toggle" aria-label="選秀即時同步" aria-expanded="false"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M20 11a8 8 0 0 0-14.3-4.9L4 8M4 4v4h4M4 13a8 8 0 0 0 14.3 4.9L20 16M20 20v-4h-4"/></svg></button>
+      </div>
       </div>
       <div id="status" class="status" hidden></div>
       <p class="muted small" id="board-meta"></p>

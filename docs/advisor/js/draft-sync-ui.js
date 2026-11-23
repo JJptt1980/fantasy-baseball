@@ -219,6 +219,7 @@ function renderButtons() {
   $('#ds-other').hidden = !st.running;
   $('#ds-start').hidden = st.running;
   $('#ds-stop').hidden = !st.running;
+  $('#ds-toggle')?.classList.toggle('on', st.running);
 }
 
 function renderMeta() {

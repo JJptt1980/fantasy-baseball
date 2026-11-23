@@ -98,32 +98,35 @@ function renderBoard() {
   const ml = getList();
   const mlOf = (id) => (ml.prio.includes(String(id)) ? 'prio' : ml.no.includes(String(id)) ? 'no' : null);
   const onlyList = $('#filter-pos').value === 'ML';
+  const lf = state.listFilter ?? null;
   for (const p of state.ranked) {
     if (shown >= 400) break;
     const mark = state.marks[p.id];
     const mk = mlOf(p.id);
     if (onlyList && !mk) continue;
+    if (lf && mk !== lf) continue;
     if (q && !p.name.toLowerCase().includes(q)) continue;
     if (pos && !onlyList && !(pos === p.side || pos === p.pos)) continue;
-    if (!q && !pos && p.round !== lastRound) {
+    if (!q && !pos && !lf && p.round !== lastRound) {
       rows.push(`<li class="round-sep">第 ${p.round} 輪</li>`);
       lastRound = p.round;
     }
     shown++;
     rows.push(`<li class="row ${mark || ''} ${mk === 'no' ? 'ml-no' : ''}" data-id="${p.id}">
-      <div class="no"><b>${p.rank}</b><span>市場 ${p.marketRank}</span></div>
+      <div class="no"><b>${p.rank}</b><span>市${p.marketRank}</span></div>
       <div class="row-m">
         <div class="name">${esc(p.name)}<span class="pos">${esc(p.pos)}</span></div>
         <div class="why1">${esc(reasonOf(p))}</div>
         <div class="line one">${esc(p.team)}・${p.age} 歲｜${esc(statLine(p))}</div>
       </div>${quickList(p.id, p.name)}</li>`);
   }
-  $('#board').innerHTML = rows.join('') || '<li class="muted">沒有符合的球員</li>';
+  $('#board').innerHTML = rows.join('') || `<li class="muted">${lf === 'prio' ? '最愛名單是空的：按球員右邊的 ⭐ 加入' : lf === 'no' ? '不愛名單是空的：按球員右邊的 🚫 加入' : '沒有符合的球員'}</li>`;
+  document.querySelectorAll('[data-lf]').forEach((b) => { const on = b.dataset.lf === lf; b.classList.toggle('on', on); b.setAttribute('aria-pressed', on); });
   const at = lastFetched(state.season);
   const atTxt = at ? `｜MLB 數據 ${new Date(at).toLocaleDateString('zh-TW', { month: 'numeric', day: 'numeric' })} 抓的（${state.season} 季已結束就不再抓；季中一天最多抓一次）` : '';
   // 說明看過一次（點過球員）就收起來
   $('#board-meta').hidden = lsGet('adv.boardTipSeen', false);
-  $('#board-meta').innerHTML = '點球員看詳細（左右滑換人）｜右邊 ⭐＝優先想要、🚫＝不要｜「市場」＝別人大概第幾個選他';
+  $('#board-meta').innerHTML = '點球員看詳細（左右滑換人）｜右邊 ⭐＝優先想要、🚫＝不要｜左邊「市」＝別人大概第幾個選他';
   $('#board-src').textContent = `排名根據：${state.dataNote ?? `${state.season} 季成績`}｜「市」來源：${state.marketLabel ?? '自己估計'}${state.adpNote ? `｜${state.adpNote}` : ''}${atTxt}`;
 }
 
@@ -250,6 +253,18 @@ function bind() {
   $('#search').addEventListener('input', renderBoard);
   $('#filter-pos').addEventListener('change', renderBoard);
   window.addEventListener('mylist:change', renderBoard);
+  // 最愛／不愛：只看自己名單裡的人，再按一次回到全部
+  document.querySelectorAll('[data-lf]').forEach((b) => b.addEventListener('click', () => {
+    haptic('tap');
+    state.listFilter = state.listFilter === b.dataset.lf ? null : b.dataset.lf;
+    renderBoard();
+    window.scrollTo(0, 0);
+  }));
+  // 搜尋列右邊的「同步」小按鈕：打開／收起選秀即時同步
+  const dsBox = $('#ds-box');
+  const dsTg = $('#ds-toggle');
+  dsTg.addEventListener('click', () => { haptic('tap'); dsBox.open = !dsBox.open; });
+  dsBox.addEventListener('toggle', () => { dsTg.setAttribute('aria-expanded', dsBox.open); dsTg.classList.toggle('open', dsBox.open); });
 
 
   $('#board').addEventListener('click', (e) => {
