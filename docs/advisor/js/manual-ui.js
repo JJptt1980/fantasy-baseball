@@ -53,6 +53,8 @@ function save() {
 function updateContinue() {
   const s = lsGet(LS_SAVE, null);
   const btn = $('#mn-continue');
+  // 有存檔：「繼續上次」當主按鈕（紫色、放前面），「開始新賽季」變次要
+  $('#mn-new').classList.toggle('primary', !s || !!st.g);
   if (!s || st.g) { btn.hidden = true; return; }
   const plays = s.actions.filter((a) => a[0] === 'play').length;
   const picks = s.actions.filter((a) => a[0] === 'pick').length;
@@ -531,6 +533,9 @@ export function initManual({ getSelection, getSeason, getProfiles }) {
   const rc = roomCfg();
   $('#mn-clock').value = String(rc.clock);
   $('#mn-speed').value = String(rc.speed);
+  // 存的值不在選單裡（舊版設定）→ 回到預設
+  if ($('#mn-clock').selectedIndex < 0) $('#mn-clock').value = '60';
+  if ($('#mn-speed').selectedIndex < 0) $('#mn-speed').value = '1';
   const saveRoom = () => lsSet(LS_ROOM, { clock: Number($('#mn-clock').value), speed: Number($('#mn-speed').value) });
   $('#mn-clock').addEventListener('change', saveRoom);
   $('#mn-speed').addEventListener('change', saveRoom);

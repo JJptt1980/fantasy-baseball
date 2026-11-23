@@ -17,7 +17,7 @@
     <span class="mini-title" id="mini-title"></span>
   </header>
   <nav class="tabbar" role="tablist">
-    <button type="button" class="tb active" data-tab="demo"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="2.5" y="7" width="19" height="11" rx="5.5"/><path d="M7 10.5v4M5 12.5h4M15.5 11.5h.01M18 13.5h.01"/></svg><span>2027 模擬</span></button>
+    <button type="button" class="tb active" data-tab="demo"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="2.5" y="7" width="19" height="11" rx="5.5"/><path d="M7 10.5v4M5 12.5h4M15.5 11.5h.01M18 13.5h.01"/></svg><span>模擬</span></button>
     <button type="button" class="tb" data-tab="draft"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="5" y="3" width="14" height="18" rx="2"/><path d="M9 8h6M9 12h6M9 16h4"/></svg><span>選秀</span></button>
     <button type="button" class="tb" data-tab="pickup"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="10" cy="8" r="3.5"/><path d="M3.5 20c.8-3.6 3.4-5.5 6.5-5.5s5.7 1.9 6.5 5.5M18 8v6M15 11h6"/></svg><span>球季中</span></button>
     <button type="button" class="tb" data-tab="live"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M13 2 4 14h7l-1 8 9-12h-7z"/></svg><span>即時</span></button>
@@ -33,13 +33,12 @@
       </div>
       <div id="demo-manual">
         <div class="card" id="mn-start">
-          <h2>模擬 2027 選秀＋球季</h2>
-          <p class="muted small">你當 12 隊裡的一隊：先選 25 個球員，再每週決定撿誰、誰上場。App 每一步都會給建議。比賽照去年真的成績重播，會自動存檔。</p>
+          <p class="muted small first">你當 12 隊的一隊：先選 25 個球員，再每週決定撿誰、誰上場，App 每一步都給建議。會自動存檔。</p>
           <div class="two"><label>你第幾個選<select id="mn-slot"><option value="">隨機</option></select></label>
             <label>每次選人時間<select id="mn-clock"><option value="60">60 秒</option><option value="30">30 秒</option><option value="90">90 秒</option><option value="0">不限時</option></select></label></div>
-          <div class="two" style="margin-top:6px"><label>別隊選人速度<select id="mn-speed"><option value="1">普通</option><option value="0.4">快</option><option value="2">慢（像真的）</option></select></label>
-            <label>&nbsp;<button type="button" class="btn primary" id="mn-new"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true" fill="currentColor" stroke="none"><path d="M8 5.5v13l11-6.5z"/></svg> 開始新賽季</button></label></div>
-          <div class="demo-btns"><button type="button" class="btn" id="mn-continue" hidden></button></div>
+          <div class="two" style="margin-top:8px"><label>別隊選人速度<select id="mn-speed"><option value="1">普通</option><option value="0.4">快</option><option value="2">慢（像真的）</option></select></label><span></span></div>
+          <div class="mn-acts"><button type="button" class="btn primary" id="mn-continue" hidden></button>
+            <button type="button" class="btn primary" id="mn-new"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true" fill="currentColor" stroke="none"><path d="M8 5.5v13l11-6.5z"/></svg> 開始新賽季</button></div>
         </div>
         <div id="mn-status" class="status" hidden></div>
         <div id="mn-body"></div>
@@ -58,18 +57,11 @@
           <button type="button" id="demo-skip" class="btn" hidden><svg class="ic" viewBox="0 0 24 24" aria-hidden="true" fill="currentColor" stroke="none"><path d="M5 6l8 6-8 6zM13 6l8 6-8 6z"/></svg> 跳到結果</button>
         </div>
       </div>
-      <div id="demo-status" class="status" hidden></div>
       <div id="demo-final" class="card final" hidden></div>
       <div id="demo-now" class="card" hidden></div>
       <div id="demo-standings" class="card" hidden></div>
       <details id="demo-draft" class="card" hidden><summary>選秀結果</summary><div id="demo-draft-body"></div></details>
       <div id="demo-log" class="card" hidden></div>
-      </div>
-      <div class="card opp-card">
-        <h3 class="first">對手</h3>
-        <p class="muted small" id="demo-opp-desc">現在的對手是一般電腦。按下面的按鈕，可以改成照你們聯盟真人的選人習慣。</p>
-        <details><summary class="small">看每個對手的習慣</summary><div id="demo-opp-list"></div></details>
-        <button type="button" id="demo-opp-load" class="btn" style="margin-top:8px">重新從 Yahoo 讀取（約 1 分鐘）</button>
       </div>
     </section>
 
@@ -112,6 +104,13 @@
 
     <section id="tab-pickup" hidden>
       <h1 class="large-title">球季中</h1>
+      <div class="card off-card" id="pk-off" hidden>
+        <div class="off-ic"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3.5" y="5" width="17" height="15" rx="3"/><path d="M3.5 10h17M8 3v4M16 3v4"/></svg></div>
+        <div class="off-k">休賽季中</div>
+        <div class="off-big" id="pk-off-days"></div>
+        <p class="small">開季後，這頁每週幫你從自由球員裡找值得撿的人：最近手感好的、補你隊上缺的、專門對付這週對手的。</p>
+        <p class="muted small">要先登入 Yahoo，App 才知道你隊上有誰、這週對手是誰。</p>
+      </div>
       <div class="card">
         <div class="acct">
           <span id="pk-who" class="muted">讀取中…</span>
@@ -152,6 +151,13 @@
     </section>
     <section id="tab-live" hidden>
       <h1 class="large-title">即時</h1>
+      <div class="card off-card" id="lv-off" hidden>
+        <div class="off-ic"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3.5" y="5" width="17" height="15" rx="3"/><path d="M3.5 10h17M8 3v4M16 3v4"/></svg></div>
+        <div class="off-k">休賽季中</div>
+        <div class="off-big" id="lv-off-days"></div>
+        <p class="small">開季後，比賽那一週打開這頁，會看到這週你和對手 18 個項目誰領先、誰落後，還有今天你隊上誰有比賽、打得怎樣。比賽中每 60 秒自動更新。</p>
+        <p class="muted small">要先在「球季中」頁登入 Yahoo。</p>
+      </div>
       <div id="lv-status" class="status" hidden></div>
       <div class="card" id="lv-head" hidden></div>
       <div class="card" id="lv-cats" hidden></div>
@@ -179,6 +185,13 @@
       <div class="list">
         <button type="button" class="li" data-goto="draft" data-open="ds-box"><span class="li-ic"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M20 11a8 8 0 0 0-14.3-4.9L4 8M4 4v4h4M4 13a8 8 0 0 0 14.3 4.9L20 16M20 20v-4h-4"/></svg></span><span class="li-t">選秀即時同步<small>選秀當天打開：自動劃掉被選走的人、推薦、震動＋聲音提醒</small></span><span class="chev">›</span></button>
         <button type="button" class="li" id="open-sources"><span class="li-ic"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="8" cy="15" r="4"/><path d="M11 12l9-9M16 7l3 3M14 9l2 2"/></svg></span><span class="li-t">資料來源與金鑰<small>MLB 預測、Statcast、傷兵、Yahoo／ESPN／FantasyPros 順位；資料包匯出匯入</small></span><span class="chev">›</span></button>
+      </div>
+      <div class="card opp-card">
+        <h3 class="first">模擬的對手</h3>
+        <p class="muted small" id="demo-opp-desc">現在的對手是一般電腦。按下面的按鈕，可以改成照你們聯盟真人的選人習慣。</p>
+        <details><summary class="small">看每個對手的習慣</summary><div id="demo-opp-list"></div></details>
+        <button type="button" id="demo-opp-load" class="btn" style="margin-top:8px">重新從 Yahoo 讀取（約 1 分鐘，一年一次就好）</button>
+        <div id="demo-status" class="status" hidden></div>
       </div>
       <h3 class="list-h">關於</h3>
       <div class="card about">

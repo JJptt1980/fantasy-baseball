@@ -12,6 +12,7 @@ import { initDraftSync } from './draft-sync-ui.js';
 import { haptic, sound, fxSetting, toast, pullToRefresh, skeleton, sheet, closeSheet, icon } from './ui-kit.js';
 import { reasonOf, openPlayerCard, statLine as cardStatLine } from './player-card.js';
 import { getList } from './mylist.js';
+import { isOffseason, nextOpening, daysUntil, refreshOpening } from './season.js';
 
 const $ = (s) => document.querySelector(s);
 const LS = { strat: 'adv.strategies', prefs: 'adv.prefs', notes: 'adv.notes', marks: 'adv.marks', tab: 'adv.tab' };
@@ -110,17 +111,19 @@ function renderBoard() {
     }
     shown++;
     rows.push(`<li class="row ${mark || ''} ${mk === 'no' ? 'ml-no' : ''}" data-id="${p.id}">
-      <div class="no"><b>${p.rank}</b><span>市 ${p.marketRank}</span></div>
-      <div>
-        <div class="name">${esc(p.name)}<span class="pos">${esc(p.pos)}</span>${mk === 'prio' ? `<span class="ml-tag prio">${icon('star', { fill: true })}優先</span>` : mk === 'no' ? `<span class="ml-tag no">${icon('ban')}不要</span>` : ''}</div>
-        <div class="line">${esc(p.team)}・${p.age} 歲｜${esc(statLine(p))}</div>
-        <div class="why1">${esc(reasonOf(p))}</div>${state.adp?.get(`${p.side}${p.id}`) ? `<div class="line">${esc(ADP.adpLine(state.adp.get(`${p.side}${p.id}`)))}</div>` : ''}
+      <div class="no"><b>${p.rank}</b><span>市場 ${p.marketRank}</span></div>
+      <div class="row-m">
+        <div class="name">${mk ? `<i class="ml-dot ${mk}" aria-label="${mk === 'prio' ? '優先' : '不要'}"></i>` : ''}${esc(p.name)}<span class="pos">${esc(p.pos)}</span></div>
+        <div class="why1">${esc(reasonOf(p))}</div>
+        <div class="line one">${esc(p.team)}・${p.age} 歲｜${esc(statLine(p))}</div>
       </div></li>`);
   }
   $('#board').innerHTML = rows.join('') || '<li class="muted">沒有符合的球員</li>';
   const at = lastFetched(state.season);
   const atTxt = at ? `｜MLB 數據 ${new Date(at).toLocaleDateString('zh-TW', { month: 'numeric', day: 'numeric' })} 抓的（${state.season} 季已結束就不再抓；季中一天最多抓一次）` : '';
-  $('#board-meta').textContent = '點一下球員：看詳細、加入「優先」或「不要」名單｜「市」＝別人大概第幾個選他';
+  // 說明看過一次（點過球員）就收起來
+  $('#board-meta').hidden = lsGet('adv.boardTipSeen', false);
+  $('#board-meta').innerHTML = '點球員：看詳細、左右滑換人、加入優先 <i class="ml-dot prio"></i>／不要 <i class="ml-dot no"></i>｜「市場」＝別人大概第幾個選他';
   $('#board-src').textContent = `排名根據：${state.dataNote ?? `${state.season} 季成績`}｜「市」來源：${state.marketLabel ?? '自己估計'}${state.adpNote ? `｜${state.adpNote}` : ''}${atTxt}`;
 }
 
@@ -252,6 +255,7 @@ function bind() {
   $('#board').addEventListener('click', (e) => {
     const row = e.target.closest('.row');
     if (!row) return;
+    if (!lsGet('adv.boardTipSeen', false)) { lsSet('adv.boardTipSeen', true); $('#board-meta').hidden = true; }
     openPlayer(row.dataset.id);
   });
 }
@@ -270,11 +274,28 @@ function showTab(tab, { fromBack = false } = {}) {
   $('#mini-title').textContent = $(`#tab-${tab} .large-title`)?.textContent ?? '';
   window.scrollTo(0, 0);
   watchTitle(tab);
+  if (tab === 'live' || tab === 'pickup') renderOffseason();
   if (tab === 'live') live?.onShow();
   if (tab === 'pickup') pickup?.onShow();
   if (tab === 'demo') document.dispatchEvent(new Event('demo:shown'));
   lsSet(LS.tab, tab);
 }
+
+// 休賽季：「球季中」「即時」顯示說明卡＋開季倒數，藏起季中才用得到的東西
+function renderOffseason() {
+  const off = isOffseason();
+  const d = nextOpening();
+  const txt = d ? `開季還有 ${daysUntil(d)} 天` : '';
+  const sub = d ? `（${Number(d.slice(5, 7))} 月 ${Number(d.slice(8, 10))} 日）` : '';
+  for (const k of ['pk', 'lv']) {
+    $(`#${k}-off`).hidden = !off;
+    $(`#${k}-off-days`).innerHTML = `${txt}<small>${sub}</small>`;
+  }
+  $('#tab-pickup').classList.toggle('off', off);
+  $('#tab-live').classList.toggle('off', off);
+}
+refreshOpening().then(() => { if (curTab === 'live' || curTab === 'pickup') renderOffseason(); });
+refreshOpening(new Date().getFullYear() + 1);
 
 // 大標題捲出畫面 → 頂列顯示小標題
 let titleObs = null;

@@ -88,7 +88,7 @@ async function refresh() {
     const week = r.week;
     if (!r.rosterAt) { status('這週沒有對手（輪空，或季後賽已經結束）。', 'warn'); return clear(); }
     if (!week?.start || now > week.end || now < week.start) {
-      status('休賽季中，沒有比賽。開季後這裡會顯示這週 18 類誰贏誰輸、今天誰有比賽。', 'warn');
+      status(document.getElementById('lv-off')?.hidden === false ? '' : '這週沒有比賽。', 'warn');
       return clear();
     }
     status('讀取逐日陣容與 MLB 數據…');
