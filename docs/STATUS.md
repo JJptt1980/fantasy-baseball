@@ -7,7 +7,8 @@
 - 發版：`scripts/release-beta.sh "改了什麼"`（versionCode 自動 +1、`-PpublicBuild=true` 打包不含 data/private 與 _ux、檢查簽章與私人資料、發 prerelease、更新 feed）
 - 簽章沿用 ~/.android/debug.keystore（憑證 SHA-256 a57c2fc1…c807，跟 LanShare 同一把），已備份到鑰匙圈 `android-debug-keystore-base64`
 - 公開版 APK 不含聯盟私人資料：已裝的手機更新後資料都在；新手機要用「更多 → 資料包」匯入一次
-- 已發 v0.1.2-3（測試用）；兩支手機的 0.1.1 安裝與實機更新流程待測（手機被別的 session 佔用中）
+- 已發 v0.1.2-3（測試用）。2026-11-26 X200 Pro 實測：0.1.1 打開就跳「有新版本 0.1.2」→ 使用者允許安裝不明應用程式 → 下載、安裝成功；更新後我的名單、對手 10 年習慣、聯盟順位、模擬存檔都還在，再查顯示已是最新版
+- V2126 目前留給熱點雷達專用，還停在 0.1.1（下次能用時打開 App 就會跳更新）
 
 ## 2026-11-23 改版（使用者語音回饋）
 - 震動原本完全沒作用（App 內網頁不支援 navigator.vibrate）→ 新增原生 `Feedback.java`（window.Feedback）：震動＋提示音（ToneGenerator，**改用媒體音量**：通知音量在勿擾／靜音模式會被關掉，使用者實測沒聲音）；輪到你／快輪到你用鬧鐘等級震動
