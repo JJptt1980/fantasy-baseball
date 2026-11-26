@@ -1,5 +1,14 @@
 # 專案狀態
 
+## 2026-11-26 App 內更新
+- 公開的 `JJptt1980/fantasy-baseball-beta` 只放 APK（xuanxiu.apk）和 update.json；固定的 `feed` Release 放最新的 update.json
+- 原生 `Updater.java`（window.Updater）：check()／install()／state()／version()，背景查與下載、比對 SHA-256、跳出系統安裝畫面；第一次要使用者自己允許「安裝不明應用程式」
+- 網頁 `js/update-ui.js`：打開 App 自動查一次，有新版在頂列下面跳「有新版本」條；「更多 → 關於」有「檢查更新」按鈕和實際版本號
+- 發版：`scripts/release-beta.sh "改了什麼"`（versionCode 自動 +1、`-PpublicBuild=true` 打包不含 data/private 與 _ux、檢查簽章與私人資料、發 prerelease、更新 feed）
+- 簽章沿用 ~/.android/debug.keystore（憑證 SHA-256 a57c2fc1…c807，跟 LanShare 同一把），已備份到鑰匙圈 `android-debug-keystore-base64`
+- 公開版 APK 不含聯盟私人資料：已裝的手機更新後資料都在；新手機要用「更多 → 資料包」匯入一次
+- 已發 v0.1.2-3（測試用）；兩支手機的 0.1.1 安裝與實機更新流程待測（手機被別的 session 佔用中）
+
 ## 2026-11-23 改版（使用者語音回饋）
 - 震動原本完全沒作用（App 內網頁不支援 navigator.vibrate）→ 新增原生 `Feedback.java`（window.Feedback）：震動＋提示音（ToneGenerator，**改用媒體音量**：通知音量在勿擾／靜音模式會被關掉，使用者實測沒聲音）；輪到你／快輪到你用鬧鐘等級震動
 - 提示音：輪到你兩聲、快輪到你一聲、選到人短短一聲；「更多」可開關震動、聲音，各有「試一下」（設定存 fx.vibe／fx.sound）

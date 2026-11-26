@@ -34,6 +34,7 @@ cd android && ./gradlew -q assembleDebug && cp app/build/outputs/apk/debug/app-d
 - 網頁預覽：`.claude/launch.json` 的 `docs-8010`（python http.server 服務 `docs/`），網址 `http://localhost:8010/advisor/`。瀏覽器會快取 ES module，改完要 `fetch(檔案,{cache:'reload'})` 再重新整理。
 - 模擬選秀壓力測試：`docs/advisor/_ux/draft.js`，在預覽頁用 `import('./_ux/draft.js').then(m => m.run(場數, 種子))`，結果在 `window.__dx`（errors、stuck、issues）。
 - `build-out/` 放 APK，不進 git（`*.apk` 已忽略）。
+- 發 App 內更新的測試版：`scripts/release-beta.sh "改了什麼"`（發到公開的 `JJptt1980/fantasy-baseball-beta`，prerelease；會自動加 versionCode、commit、push）。
 
 ## 架構重點
 
@@ -42,6 +43,7 @@ cd android && ./gradlew -q assembleDebug && cp app/build/outputs/apk/debug/app-d
 - **分頁**：`js/main.js` 的 `PAGES = ['demo','draft','pickup','live','more']`（模擬／選秀／球季中／即時／更多），各分頁 UI 在 `manual-ui.js`、`draft-sync-ui.js`、`pickup-ui.js`、`live-ui.js`；邏輯放在沒有 `-ui` 的同名檔，測試只測邏輯檔。
 - **排名與推薦**：`rank.js`、`projections.js`、`strategies.js` 算選秀表；`draft-sync.js` 的 `recommend()` 決定推薦誰。我的名單（`mylist.js`，localStorage `adv.mylist` = `{prio:[id], no:[id]}`，id 是字串）：`no` 永遠不推薦、`prio` 加分；改名單會發 `mylist:change` 事件，各頁靠它重畫。
 - **資料都存在手機 localStorage**。`pack.js` 的 `PACK_KEYS` 列出哪些 key 會被「資料包」匯出／匯入；新增要跟著搬家的設定時記得加進去。
+- **App 內更新**：`Updater.java`（window.Updater）讀 beta repo `feed` Release 的 `update.json`，網頁端是 `js/update-ui.js`。發版用 `-PpublicBuild=true` 打包，不含 `data/private`。簽章必須是 `~/.android/debug.keystore`（鑰匙圈有備份），換鑰匙手機就無法更新。
 - **私人聯盟資料**：`docs/advisor/data/private/pack.json`（gitignored）在 App 第一次打開時只補手機上還沒有的 key。它含對手暱稱等個人資料，所以 **APK 不能公開發布**（例如 GitHub Release），這個 repo 是公開的。
 - **數據來源**：MLB 官方公開 API（statsapi.mlb.com，免登入）；`docs/advisor/data/weekly-<年>.json` 由 `scripts/build-weekly.mjs` 產生，給球員卡走勢圖和模擬重播用。
 - **字型**：`docs/advisor/fonts/` 的 JJ Sans 子集（約 6,200 常用字），罕用字會退回系統字型。
