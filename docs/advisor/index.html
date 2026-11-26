@@ -16,6 +16,7 @@
     <span class="brand"><img src="../icons/icon-192.png" alt="" class="brand-logo">選秀大師</span>
     <span class="mini-title" id="mini-title"></span>
   </header>
+  <div id="upd-bar" class="upd-bar" hidden></div>
   <nav class="tabbar" role="tablist">
     <button type="button" class="tb active" data-tab="demo"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="2.5" y="7" width="19" height="11" rx="5.5"/><path d="M7 10.5v4M5 12.5h4M15.5 11.5h.01M18 13.5h.01"/></svg><span>模擬</span></button>
     <button type="button" class="tb" data-tab="draft"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="5" y="3" width="14" height="18" rx="2"/><path d="M9 8h6M9 12h6M9 16h4"/></svg><span>選秀</span></button>
@@ -199,7 +200,8 @@
       </div>
       <h3 class="list-h">關於</h3>
       <div class="card about">
-        <div class="about-head"><img src="../icons/icon-192.png" alt="" class="about-logo"><div><b>選秀大師</b><div class="muted small">版本 <span id="app-ver">0.1.0</span>｜製作：JJptt1980</div></div></div>
+        <div class="about-head"><img src="../icons/icon-192.png" alt="" class="about-logo"><div><b>選秀大師</b><div class="muted small">版本 <span id="app-ver">0.1.1</span>｜製作：JJptt1980</div></div></div>
+        <div class="upd-row" id="upd-row" hidden><span class="muted small" id="upd-status"></span><button type="button" class="btn" id="upd-check">檢查更新</button></div>
         <h3>為什麼做這個 App</h3>
         <p class="small">我在 Yahoo 跟朋友玩了 10 年 Fantasy 棒球。選秀一輪只有 1 分鐘，每週撿人又要看一堆數據，所以做了這個 App，幫我快速做決定、贏聯盟。</p>
         <h3>排名怎麼算</h3>

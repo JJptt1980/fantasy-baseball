@@ -9,6 +9,7 @@ import { initDemo, reloadProfiles } from './demo-ui.js';
 import * as PACK from './pack.js';
 import { initLive } from './live-ui.js';
 import { initDraftSync } from './draft-sync-ui.js';
+import { initUpdate } from './update-ui.js';
 import { haptic, sound, fxSetting, toast, pullToRefresh, skeleton, sheet, closeSheet, icon } from './ui-kit.js';
 import { reasonOf, openPlayerCard, quickList, handleQuickList, statLine as cardStatLine } from './player-card.js';
 import { getList } from './mylist.js';
@@ -418,6 +419,8 @@ showTab(lsGet(LS.tab, 'demo'));
 // 內建資料包：手機裡還沒有的資料（對手 10 年習慣、聯盟順位）直接補上，不用等 Yahoo 慢慢讀
 PACK.seedBundled().then((done) => { if (done.includes('demo.profiles')) reloadProfiles(); });
 // 下拉更新：撿人＝重抓 Yahoo 陣容與自由球員；即時＝重抓今天比分（今天頁的資料一天才抓一次，不用下拉）
+// App 內更新：打開時查一次有沒有新版
+initUpdate();
 pullToRefresh($('#tab-pickup'), () => pickup?.refresh?.());
 pullToRefresh($('#tab-live'), () => live?.refresh?.());
 load();

@@ -12,8 +12,8 @@ android {
         applicationId = "com.jjptt.fantasybaseball"
         minSdk = 30
         targetSdk = 36
-        versionCode = 1
-        versionName = "0.1.0"
+        versionCode = 2
+        versionName = "0.1.1"
     }
 
     compileOptions {
@@ -24,6 +24,7 @@ android {
 
 dependencies {
     implementation("androidx.webkit:webkit:1.14.0")
+    implementation("androidx.core:core:1.13.1")
 }
 
 // 把網頁版（docs/advisor、docs/icons）打包進 APK 的 assets/web/
@@ -34,6 +35,10 @@ abstract class CopyWebAssets : DefaultTask() {
     @get:OutputDirectory
     abstract val outputDir: DirectoryProperty
 
+    // 公開版（發到 beta repo 給 App 內更新用）不能帶聯盟私人資料、也不帶測試腳本
+    @get:Input
+    abstract val publicBuild: Property<Boolean>
+
     @get:Inject
     abstract val fs: FileSystemOperations
 
@@ -42,6 +47,7 @@ abstract class CopyWebAssets : DefaultTask() {
         fs.sync {
             from(webDir) {
                 include("advisor/**", "icons/**")
+                if (publicBuild.get()) exclude("advisor/data/private/**", "advisor/_ux/**")
                 into("web")
             }
             into(outputDir)
@@ -51,6 +57,8 @@ abstract class CopyWebAssets : DefaultTask() {
 
 val copyWeb = tasks.register<CopyWebAssets>("copyWebAssets") {
     webDir.set(rootProject.layout.projectDirectory.dir("../docs"))
+    // ./gradlew assembleDebug -PpublicBuild=true
+    publicBuild.set(providers.gradleProperty("publicBuild").map { it == "true" }.orElse(false))
 }
 
 androidComponents {
